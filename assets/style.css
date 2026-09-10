@@ -12,6 +12,9 @@
   }
 }
 *{box-sizing:border-box}
+/* any explicit display beats the browser's own [hidden] rule, and .chips sets
+   display:flex - so hidden elements need this or they stay on screen */
+[hidden]{display:none!important}
 html,body{height:100%}
 body{
   margin:0; background:var(--bg); color:var(--ink);

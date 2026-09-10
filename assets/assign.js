@@ -12,7 +12,7 @@
 // note:    q => string     short right-hand note, e.g. difficulty
 // preview: q => string[]   image urls, so the teacher picks by seeing the question
 
-import * as db from './db.js?v=6263e82a';
+import * as db from './db.js?v=b4da5f2b';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -86,7 +86,11 @@ export function renderStudentList(el, { assignments, attempts, onOpen }) {
 }
 
 // A strip shown above the practice list while an assignment is open.
-export function banner(assignment, attempts, onExit) {
+//
+// `parts` lists what the set covers, e.g. [['Trigonometry', 4], ...]. They are
+// labels, not filters: filtering inside a set of ten questions buys little, and
+// a student who filters and forgets sees an empty list and thinks they are done.
+export function banner(assignment, attempts, { onExit, parts = [] }) {
   const p = progressOf(assignment, attempts);
   const el = document.createElement('div');
   el.className = 'card';
@@ -98,9 +102,26 @@ export function banner(assignment, attempts, onExit) {
       <span class="spacer"></span>
       <button class="plain" data-exit>退出作业</button>
     </div>
-    ${gauge(p.done, p.total)}`;
+    ${gauge(p.done, p.total)}
+    ${parts.length ? `<div class="picks" style="margin-top:10px">
+      <span class="hint" style="align-self:center">涉及</span>
+      ${parts.map(([name, n]) =>
+        `<span class="badge g">${esc(name)} ${n}道</span>`).join('')}
+    </div>` : ''}`;
   el.querySelector('[data-exit]').onclick = onExit;
   return el;
+}
+
+// What a set covers, biggest group first. `of` returns the group names a
+// question belongs to, so a question spanning two topics counts under both.
+export function composition(assignment, questions, of) {
+  const want = new Set(assignment.question_ids);
+  const seen = new Map();
+  for (const q of questions) {
+    if (!want.has(q.id)) continue;
+    for (const name of of(q)) seen.set(name, (seen.get(name) || 0) + 1);
+  }
+  return [...seen.entries()].sort((a, b) => b[1] - a[1]);
 }
 
 // ------------------------------------------------------------ teacher view

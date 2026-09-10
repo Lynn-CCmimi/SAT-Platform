@@ -1,5 +1,5 @@
-import * as db from './db.js?v=6263e82a';
-import * as assign from './assign.js?v=6263e82a';
+import * as db from './db.js?v=b4da5f2b';
+import * as assign from './assign.js?v=b4da5f2b';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };

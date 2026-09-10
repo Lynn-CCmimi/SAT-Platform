@@ -1,5 +1,5 @@
-import * as db from './db.js?v=6263e82a';
-import * as assign from './assign.js?v=6263e82a';
+import * as db from './db.js?v=b4da5f2b';
+import * as assign from './assign.js?v=b4da5f2b';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -173,12 +173,16 @@ function renderFilters() {
   bar.innerHTML = '';
   for (const id of ['domains', 'skills', 'levels']) $(id).hidden = Boolean(active);
   if (active) {
-    bar.appendChild(assign.banner(active, ATTEMPTS, () => {
-      active = null;
-      cur = null;
-      $('qpanel').innerHTML = '<div class="empty">从左边选一道题</div>';
-      renderFilters();
-      renderList();
+    bar.appendChild(assign.banner(active, ATTEMPTS, {
+      parts: assign.composition(active, DATA.questions,
+        q => [DATA.skills[q.s]?.name].filter(Boolean)),
+      onExit: () => {
+        active = null;
+        cur = null;
+        $('qpanel').innerHTML = '<div class="empty">从左边选一道题</div>';
+        renderFilters();
+        renderList();
+      },
     }));
     return;
   }
