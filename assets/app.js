@@ -1,5 +1,6 @@
-import * as db from './db.js?v=b4da5f2b';
-import * as assign from './assign.js?v=b4da5f2b';
+import * as db from './db.js?v=d0f2b5ef';
+import * as assign from './assign.js?v=d0f2b5ef';
+import * as photos from './photos.js?v=d0f2b5ef';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -243,7 +244,7 @@ function renderList() {
 function show(id) {
   cur = DATA.questions.find(q => q.id === id);
   state = { chosen: null, submitted: false, right: false, attempt: null,
-            reasons: new Set(), weak: false, photo: null, blob: null };
+            reasons: new Set(), weak: false, up: null };
   renderList();
   renderPanel();
   $('qpanel').scrollIntoView({ block: 'nearest' });
@@ -346,10 +347,9 @@ function renderAfter() {
             esc(skill.name)}<span class="hint" style="margin-left:6px">点一下表示没掌握</span></button></div>
         </div>
 
-        <div class="ref"><div class="h">照着解析订正一遍，拍照传上来</div>
-          <div class="drop" id="drop">点这里拍照或选图片</div>
-          <input type="file" id="file" accept="image/*" capture="environment" hidden>
-          <div id="shot"></div>
+        <div class="ref"><div class="h">照着解析订正一遍，拍照传上来<span
+              class="hint">写了两页就传两张，最多 6 张</span></div>
+          <div id="shots"></div>
         </div>
 
         <div class="row" style="margin-top:14px">
@@ -369,18 +369,7 @@ function renderAfter() {
     state.weak = !state.weak;
     $('weak').setAttribute('aria-pressed', state.weak);
   };
-  $('drop').onclick = () => $('file').click();
-  $('file').onchange = async e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    try {
-      state.blob = await db.shrink(f);
-      $('shot').innerHTML = `<div class="shot">
-        <img src="${URL.createObjectURL(state.blob)}" alt="订正">
-        <button class="plain" id="drop2">重拍</button></div>`;
-      $('drop2').onclick = () => $('file').click();
-    } catch (err) { toast(err.message || '照片处理失败'); }
-  };
+  state.up = photos.uploader($('shots'), { onError: toast });
   $('save').onclick = saveDetail;
 }
 
@@ -393,7 +382,9 @@ async function saveDetail() {
       reasons: [...state.reasons],
       weak_sections: state.weak ? [cur.s] : [],
     };
-    if (state.blob) patch.photo_path = await db.uploadPhoto(ME.id, cur.id, state.blob);
+    if (state.up?.blobs.length) {
+      patch.photo_paths = await photos.uploadAll(ME.id, cur.id, state.up.blobs);
+    }
     await db.updateAttempt(state.attempt.id, patch);
     Object.assign(state.attempt, patch);
     reindex();
@@ -477,16 +468,16 @@ async function fillWrongBody(item) {
             q.r.map(src => `<img class="paper" loading="lazy" src="${B}${src}" alt="解析">`).join('')
           }</details>` : '')
       : '')
-    + (a.photo_path ? '<div class="hint" data-slot="1">订正照片加载中…</div>' : '');
-  if (a.photo_path) {
-    const url = await db.photoUrl(a.photo_path);
-    const slot = body.querySelector('[data-slot]');
-    if (slot) {
-      slot.outerHTML = url
-        ? `<img class="paper" loading="lazy" src="${url}" alt="订正">`
-        : '<div class="hint">照片打不开</div>';
-    }
-  }
+    + '<div class="ref"><div class="h">订正照片</div><div data-shots></div></div>';
+
+  // editable here: a blurry shot or an extra page should not mean redoing the
+  // question just to attach a better photo
+  await photos.gallery(body.querySelector('[data-shots]'), a, {
+    editable: true,
+    userId: ME.id,
+    onChange: (paths, err, action) =>
+      toast(err || (action === 'remove' ? '照片已删除' : '照片已保存')),
+  });
 }
 
 boot();

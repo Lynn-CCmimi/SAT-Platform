@@ -133,6 +133,15 @@ export async function uploadPhoto(userId, questionId, blob) {
   return path;
 }
 
+// Removing a photo means the row stops pointing at it and the file goes. The
+// row is updated first: an orphaned file wastes a little quota, a row pointing
+// at a deleted file shows the student a broken image.
+export async function deletePhoto(path) {
+  const db = await supabase();
+  const { error } = await db.storage.from('corrections').remove([path]);
+  if (error) throw error;
+}
+
 export async function photoUrl(path) {
   if (!path) return null;
   const db = await supabase();

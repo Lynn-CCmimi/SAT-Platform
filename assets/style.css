@@ -119,7 +119,9 @@ button.plain{padding:6px 13px;border-radius:8px;border:1px solid var(--line);
 .drop{margin-top:9px;border:1.5px dashed var(--line);border-radius:9px;padding:18px;
       text-align:center;color:var(--muted);cursor:pointer;font-size:13.5px}
 .drop:hover{border-color:var(--accent);color:var(--accent)}
-.shot{margin-top:9px;position:relative;display:inline-block}
+.shots{display:flex;gap:10px;flex-wrap:wrap;margin-top:9px}
+.shot{position:relative;display:inline-block}
+.shots .shot{margin-top:0}
 .shot img{max-height:260px;border-radius:8px;border:1px solid var(--line)}
 .shot button{position:absolute;top:6px;right:6px}
 

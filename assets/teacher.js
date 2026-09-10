@@ -1,5 +1,6 @@
-import * as db from './db.js?v=b4da5f2b';
-import * as assign from './assign.js?v=b4da5f2b';
+import * as db from './db.js?v=d0f2b5ef';
+import * as assign from './assign.js?v=d0f2b5ef';
+import * as photos from './photos.js?v=d0f2b5ef';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -182,7 +183,7 @@ function showStudent(id) {
           <span class="n">${day(r.created_at)}</span>
         </summary>
         <div class="qbody" data-q="${esc(r.question_id)}" data-ans="${esc(r.note || '')}"
-             data-photo="${esc(r.photo_path || '')}"></div>
+             data-a="${r.id}"></div>
       </details>`;
     }).join('')}`;
 
@@ -194,21 +195,13 @@ function showStudent(id) {
 async function fillBody(item) {
   const body = item.querySelector('.qbody');
   const q = DATA.questions.find(x => x.id === body.dataset.q);
-  const photo = body.dataset.photo;
+  const a = rows.find(r => String(r.id) === body.dataset.a);
   body.innerHTML = (q
       ? q.i.map(src => `<img class="paper" loading="lazy" src="${B}${src}" alt="题目">`).join('')
         + `<div class="hint">他填的：${esc(body.dataset.ans || '—')}　正确答案：${esc(q.a || '—')}</div>`
       : '')
-    + (photo ? '<div class="hint" data-slot="1">订正照片加载中…</div>' : '');
-  if (photo) {
-    const url = await db.photoUrl(photo);
-    const slot = body.querySelector('[data-slot]');
-    if (slot) {
-      slot.outerHTML = url
-        ? `<img class="paper" loading="lazy" src="${url}" alt="学生订正">`
-        : '<div class="hint">照片打不开</div>';
-    }
-  }
+    + '<div class="ref"><div class="h">学生的订正</div><div data-shots></div></div>';
+  if (a) await photos.gallery(body.querySelector('[data-shots]'), a);
 }
 
 // ------------------------------------------------------- class weak spots
