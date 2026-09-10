@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>教师端 · SAT 数学</title>
+<link rel="stylesheet" href="assets/style.css?v=1">
+<script src="config.js"></script>
+</head>
+<body>
+
+<div id="gate" class="login" hidden>
+  <h1>教师端</h1>
+  <p class="hint">用你的老师账号登录</p>
+  <input id="username" placeholder="用户名" autocomplete="username"
+         autocapitalize="off" autocorrect="off">
+  <input id="password" type="password" placeholder="密码" autocomplete="current-password">
+  <div class="err" id="loginErr"></div>
+  <button class="act" id="loginBtn">登录</button>
+</div>
+
+<div id="shell" hidden>
+  <header>
+    <div class="bar">
+      <span class="brand">教师端</span>
+      <div class="tabs">
+        <div class="tab" id="tabClass" role="tab" aria-selected="true">班级</div>
+        <div class="tab" id="tabWeak" role="tab" aria-selected="false">知识点弱项</div>
+      </div>
+      <span class="spacer"></span>
+      <a class="who" href="index.html">学生视图 →</a>
+      <button class="plain" id="logout">退出</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="viewClass">
+      <div id="summary" class="row" style="margin-bottom:14px"></div>
+      <div class="split">
+        <div class="card" style="padding:0;overflow:hidden">
+          <table id="students"></table>
+        </div>
+        <div class="card" id="detail"><div class="empty">选一个学生看详情</div></div>
+      </div>
+    </section>
+
+    <section id="viewWeak" hidden>
+      <div class="split">
+        <div class="card" id="weakSections"></div>
+        <div class="card" id="reasonMix"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="assets/teacher.js?v=1"></script>
+</body>
+</html>

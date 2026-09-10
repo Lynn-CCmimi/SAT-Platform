@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SAT 数学练习</title>
+<link rel="stylesheet" href="assets/style.css?v=1">
+<script src="config.js"></script>
+</head>
+<body>
+
+<div id="gate" class="login" hidden>
+  <h1>SAT 数学练习</h1>
+  <p class="hint">用老师给你的用户名和密码登录</p>
+  <input id="username" placeholder="用户名" autocomplete="username"
+         autocapitalize="off" autocorrect="off">
+  <input id="password" type="password" placeholder="密码" autocomplete="current-password">
+  <div class="err" id="loginErr"></div>
+  <button class="act" id="loginBtn">登录</button>
+</div>
+
+<div id="shell" hidden>
+  <header>
+    <div class="bar">
+      <span class="brand">SAT 数学</span>
+      <div class="tabs">
+        <div class="tab" id="tabPractice" role="tab" aria-selected="true">练习</div>
+        <div class="tab" id="tabWrong" role="tab" aria-selected="false">错题本</div>
+      </div>
+      <span class="spacer"></span>
+      <span class="who" id="who"></span>
+      <button class="plain" id="logout">退出</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="viewPractice">
+      <div class="chips" id="domains"></div>
+      <div class="chips" id="skills"></div>
+      <div class="chips" id="levels"></div>
+      <div class="split">
+        <div class="list" id="qlist"></div>
+        <div class="card" id="qpanel"><div class="empty">从左边选一道题</div></div>
+      </div>
+    </section>
+
+    <section id="viewWrong" hidden>
+      <div class="chips" id="wrongFilter"></div>
+      <div id="wrongList"></div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="assets/app.js?v=1"></script>
+</body>
+</html>
