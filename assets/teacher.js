@@ -1,4 +1,4 @@
-import * as db from './db.js';
+import * as db from './db.js?v=1789027250';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };

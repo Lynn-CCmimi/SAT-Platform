@@ -142,12 +142,15 @@ export async function photoUrl(path) {
 
 // ---------- teacher ----------
 
+// Only the students sitting this exam system. Almost nobody sits two, but
+// tracks is an array so the rare one shows up in both dashboards.
 export async function allStudents() {
   const db = await supabase();
   const { data, error } = await db
     .from('profiles')
-    .select('id, username, display_name, role, units')
+    .select('id, username, display_name, role, units, tracks')
     .eq('role', 'student')
+    .contains('tracks', [SUBJECT])
     .order('display_name');
   if (error) throw error;
   return data || [];
