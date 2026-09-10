@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>教师端 · SAT 数学</title>
-<link rel="stylesheet" href="assets/style.css?v=1789027250">
+<link rel="stylesheet" href="assets/style.css?v=6263e82a">
 <script src="config.js"></script>
 </head>
 <body>
@@ -26,6 +26,7 @@
       <div class="tabs">
         <div class="tab" id="tabClass" role="tab" aria-selected="true">班级</div>
         <div class="tab" id="tabWeak" role="tab" aria-selected="false">知识点弱项</div>
+        <div class="tab" id="tabAssign" role="tab" aria-selected="false">布置作业</div>
       </div>
       <span class="spacer"></span>
       <a class="who" href="index.html">学生视图 →</a>
@@ -44,6 +45,12 @@
       </div>
     </section>
 
+    <section id="viewAssign" hidden>
+      <div id="picker"></div>
+      <h3 style="font-size:15px;margin:22px 0 10px">已布置的作业</h3>
+      <div id="assignList"></div>
+    </section>
+
     <section id="viewWeak" hidden>
       <div class="split">
         <div class="card" id="weakSections"></div>
@@ -54,6 +61,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="assets/teacher.js?v=1789027250"></script>
+<script type="module" src="assets/teacher.js?v=6263e82a"></script>
 </body>
 </html>

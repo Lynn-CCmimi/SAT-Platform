@@ -4,4 +4,5 @@
 window.MATH_PLATFORM_CONFIG = {
   url: 'https://clhoyydlmojxshriuexw.supabase.co',
   anonKey: 'sb_publishable_vE4nLlR7k1OO3bs8z8gDWw_JEvKeKII',
+  subject: 'sat',
 };

@@ -1,4 +1,5 @@
-import * as db from './db.js?v=1789027250';
+import * as db from './db.js?v=6263e82a';
+import * as assign from './assign.js?v=6263e82a';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -10,6 +11,7 @@ const REASON_LABEL = {
 let DATA = null;
 let students = [];
 let rows = [];
+let sets = [];
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
@@ -64,14 +66,17 @@ async function start(user) {
   $('logout').onclick = async () => { await db.signOut(); location.reload(); };
   $('tabClass').onclick = () => tab('Class');
   $('tabWeak').onclick = () => tab('Weak');
+  $('tabAssign').onclick = () => tab('Assign');
 
-  [students, rows] = await Promise.all([db.allStudents(), db.attemptsForClass()]);
+  [students, rows, sets] = await Promise.all(
+    [db.allStudents(), db.attemptsForClass(), db.myAssignments()]);
   renderClass();
   renderWeak();
+  mountAssign();
 }
 
 function tab(name) {
-  for (const key of ['Class', 'Weak']) {
+  for (const key of ['Class', 'Weak', 'Assign']) {
     $('tab' + key).setAttribute('aria-selected', key === name);
     $('view' + key).hidden = key !== name;
   }
@@ -249,6 +254,43 @@ function renderWeak() {
           <span style="width:${Math.round((n / total) * 100)}%"></span></div>
           <span class="hint">${n}</span></div></td></tr>`).join('')}
       </tbody></table>` : '<div class="empty">还没有数据</div>'}`;
+}
+
+// ------------------------------------------------------------- assignments
+// Only the board-specific description lives here; the picker itself is shared.
+
+function mountAssign() {
+  assign.mountPicker($('picker'), {
+    questions: DATA.questions,
+    students,
+    facets: [
+      { id: 'd', name: '领域', values: q => [q.d],
+        display: v => DATA.domains.find(x => x.id === v)?.name || v },
+      { id: 's', name: '知识点', values: q => [q.s],
+        display: v => DATA.skills[v]?.name || v },
+      { id: 'x', name: '难度', values: q => [q.x], display: v => LEVEL[v] || v },
+    ],
+    label: q => DATA.skills[q.s]?.name || q.id,
+    note: q => LEVEL[q.x] || q.x,
+    preview: q => q.i.map(src => B + src),
+    onSaved: async (row, msg) => {
+      toast(msg);
+      if (row) { sets = await db.myAssignments(); renderAssignList(); }
+    },
+  });
+  renderAssignList();
+}
+
+function renderAssignList() {
+  assign.renderTeacherList($('assignList'), {
+    assignments: sets, attempts: rows, students,
+    onDeleted: async err => {
+      if (err) return toast('删除失败：' + err);
+      sets = await db.myAssignments();
+      renderAssignList();
+      toast('已删除');
+    },
+  });
 }
 
 boot();

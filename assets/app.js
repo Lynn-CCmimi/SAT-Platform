@@ -1,4 +1,5 @@
-import * as db from './db.js?v=1789027250';
+import * as db from './db.js?v=6263e82a';
+import * as assign from './assign.js?v=6263e82a';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -10,6 +11,8 @@ const REASONS = [
 let DATA = null;
 let ME = null;
 let ATTEMPTS = [];
+let ASSIGNMENTS = [];
+let active = null;        // the assignment being worked through, if any
 let pickDomain = null;
 let pickSkill = null;
 const pickLevel = new Set();
@@ -101,16 +104,22 @@ async function start(user) {
   $('who').textContent = ME.display_name;
   $('logout').onclick = async () => { await db.signOut(); location.reload(); };
   $('tabPractice').onclick = () => tab('Practice');
+  $('tabWork').onclick = () => { tab('Work'); renderWork(); };
   $('tabWrong').onclick = () => { tab('Wrong'); renderWrong(); };
 
-  ATTEMPTS = await db.myAttempts();
+  [ATTEMPTS, ASSIGNMENTS] = await Promise.all([db.myAttempts(), db.myAssignments()]);
+  // the dot is the only thing telling a student there is homework, so it has
+  // to be set after the data is in, not while wiring up the tabs
+  if (ASSIGNMENTS.some(a => assign.progressOf(a, ATTEMPTS).done < a.question_ids.length)) {
+    $('tabWork').innerHTML = '作业 <b style="color:var(--bad)">•</b>';
+  }
   pickDomain = DATA.domains[0].id;
   renderFilters();
   renderList();
 }
 
 function tab(name) {
-  for (const key of ['Practice', 'Wrong']) {
+  for (const key of ['Practice', 'Work', 'Wrong']) {
     $('tab' + key).setAttribute('aria-selected', key === name);
     $('view' + key).hidden = key !== name;
   }
@@ -129,6 +138,10 @@ const statusOf = id => latest[id] ? (latest[id].result === 'correct' ? 'ok' : 'b
 // -------------------------------------------------------------- filters
 
 function visible() {
+  if (active) {
+    const want = new Set(active.question_ids);
+    return DATA.questions.filter(q => want.has(q.id));
+  }
   return DATA.questions.filter(q =>
     (!pickDomain || q.d === pickDomain)
     && (!pickSkill || q.s === pickSkill)
@@ -139,8 +152,36 @@ function chip(label, on, extra = '') {
   return `<button class="chip" aria-pressed="${on}" ${extra}>${label}</button>`;
 }
 
+function renderWork() {
+  assign.renderStudentList($('workList'), {
+    assignments: ASSIGNMENTS, attempts: ATTEMPTS, onOpen: openAssignment,
+  });
+}
+
+function openAssignment(a) {
+  active = a;
+  cur = null;
+  tab('Practice');
+  $('qpanel').innerHTML = '<div class="empty">从左边选一道题</div>';
+  renderFilters();
+  renderList();
+}
+
 function renderFilters() {
   reindex();
+  const bar = $('assignBar');
+  bar.innerHTML = '';
+  for (const id of ['domains', 'skills', 'levels']) $(id).hidden = Boolean(active);
+  if (active) {
+    bar.appendChild(assign.banner(active, ATTEMPTS, () => {
+      active = null;
+      cur = null;
+      $('qpanel').innerHTML = '<div class="empty">从左边选一道题</div>';
+      renderFilters();
+      renderList();
+    }));
+    return;
+  }
   const done = list => list.filter(q => latest[q.id]).length;
 
   $('domains').innerHTML = DATA.domains.map(d => {

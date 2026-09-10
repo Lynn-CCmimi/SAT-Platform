@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SAT 数学练习</title>
-<link rel="stylesheet" href="assets/style.css?v=1789027250">
+<link rel="stylesheet" href="assets/style.css?v=6263e82a">
 <script src="config.js"></script>
 </head>
 <body>
@@ -25,6 +25,7 @@
       <span class="brand">SAT 数学</span>
       <div class="tabs">
         <div class="tab" id="tabPractice" role="tab" aria-selected="true">练习</div>
+        <div class="tab" id="tabWork" role="tab" aria-selected="false">作业</div>
         <div class="tab" id="tabWrong" role="tab" aria-selected="false">错题本</div>
       </div>
       <span class="spacer"></span>
@@ -35,6 +36,7 @@
 
   <main>
     <section id="viewPractice">
+      <div id="assignBar"></div>
       <div class="chips" id="domains"></div>
       <div class="chips" id="skills"></div>
       <div class="chips" id="levels"></div>
@@ -42,6 +44,10 @@
         <div class="list" id="qlist"></div>
         <div class="card" id="qpanel"><div class="empty">从左边选一道题</div></div>
       </div>
+    </section>
+
+    <section id="viewWork" hidden>
+      <div id="workList"></div>
     </section>
 
     <section id="viewWrong" hidden>
@@ -52,6 +58,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="assets/app.js?v=1789027250"></script>
+<script type="module" src="assets/app.js?v=6263e82a"></script>
 </body>
 </html>

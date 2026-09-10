@@ -7,9 +7,12 @@
 
 const CONFIG = window.MATH_PLATFORM_CONFIG || {};
 const EMAIL_DOMAIN = 'student.mathplatform.local';
-const SUBJECT = 'sat';
 
-export const configured = Boolean(CONFIG.url && CONFIG.anonKey);
+// One backend serves every exam board. Each site declares which one it is in
+// its own config.js, so this file stays byte-identical across all of them.
+const SUBJECT = CONFIG.subject;
+
+export const configured = Boolean(CONFIG.url && CONFIG.anonKey && SUBJECT);
 
 let client = null;
 
@@ -166,4 +169,37 @@ export async function attemptsForClass() {
     .limit(5000);
   if (error) throw error;
   return data || [];
+}
+
+// ---------- assignments ----------
+// A set of questions the teacher picked for named students. Progress is not
+// reported by the student app - it is counted from attempts, so simply doing
+// the question is what completes it.
+
+export async function myAssignments() {
+  const db = await supabase();
+  const { data, error } = await db
+    .from('assignments')
+    .select('*')
+    .eq('subject', SUBJECT)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveAssignment(row) {
+  const db = await supabase();
+  const { data, error } = await db
+    .from('assignments')
+    .insert({ ...row, subject: SUBJECT })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteAssignment(id) {
+  const db = await supabase();
+  const { error } = await db.from('assignments').delete().eq('id', id);
+  if (error) throw error;
 }
