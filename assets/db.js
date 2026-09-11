@@ -212,3 +212,53 @@ export async function deleteAssignment(id) {
   const { error } = await db.from('assignments').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ---------- mock papers ----------
+// Assembled by the student, scored by the student. A row is created the moment
+// the paper is generated so a refresh does not lose it.
+
+export async function myMockPapers() {
+  const db = await supabase();
+  const { data, error } = await db
+    .from('mock_papers')
+    .select('*')
+    .eq('subject', SUBJECT)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveMockPaper(row) {
+  const db = await supabase();
+  const { data, error } = await db
+    .from('mock_papers')
+    .insert({ ...row, subject: SUBJECT })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateMockPaper(id, patch) {
+  const db = await supabase();
+  const { error } = await db.from('mock_papers').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteMockPaper(id) {
+  const db = await supabase();
+  const { error } = await db.from('mock_papers').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function mockPapersForClass() {
+  const db = await supabase();
+  const { data, error } = await db
+    .from('mock_papers')
+    .select('*')
+    .eq('subject', SUBJECT)
+    .order('created_at', { ascending: false })
+    .limit(2000);
+  if (error) throw error;
+  return data || [];
+}
