@@ -1,6 +1,7 @@
-import * as db from './db.js?v=b7deeab1';
-import * as assign from './assign.js?v=b7deeab1';
-import * as photos from './photos.js?v=b7deeab1';
+import * as db from './db.js?v=e4700407';
+import * as assign from './assign.js?v=e4700407';
+import * as photos from './photos.js?v=e4700407';
+import * as analysis from './analysis.js?v=e4700407';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -107,6 +108,7 @@ async function start(user) {
   $('tabPractice').onclick = () => tab('Practice');
   $('tabWork').onclick = () => { tab('Work'); renderWork(); };
   $('tabWrong').onclick = () => { tab('Wrong'); renderWrong(); };
+  $('tabAnalysis').onclick = () => { tab('Analysis'); renderAnalysis(); };
 
   [ATTEMPTS, ASSIGNMENTS] = await Promise.all([db.myAttempts(), db.myAssignments()]);
   // the dot is the only thing telling a student there is homework, so it has
@@ -120,7 +122,7 @@ async function start(user) {
 }
 
 function tab(name) {
-  for (const key of ['Practice', 'Work', 'Wrong']) {
+  for (const key of ['Practice', 'Work', 'Wrong', 'Analysis']) {
     $('tab' + key).setAttribute('aria-selected', key === name);
     $('view' + key).hidden = key !== name;
   }
@@ -393,6 +395,21 @@ async function saveDetail() {
     toast('没存上：' + (err.message || err));
   }
   btn.disabled = false;
+}
+
+// ------------------------------------------------------------------ analysis
+
+function renderAnalysis() {
+  const skillName = id => DATA.skills[id]?.name || id;
+  analysis.render($('analysis'), {
+    attempts: ATTEMPTS,
+    questions: DATA.questions,
+    topicsOf: q => [q.s],
+    topicName: skillName,
+    sectionName: skillName,
+    reasonLabel: k => (REASONS.find(r => r[0] === k) || [, k])[1],
+    onOpenQuestion: id => { tab('Practice'); show(id); },
+  });
 }
 
 // ----------------------------------------------------------- error notebook

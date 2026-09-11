@@ -12,7 +12,7 @@
 // The site describes its own questions with accessors:
 //   marksOf(q) -> number, topicsOf(q) -> id[], paperOf(q) -> string
 
-import * as db from './db.js?v=b7deeab1';
+import * as db from './db.js?v=e4700407';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -190,4 +190,138 @@ export function renderTeacherRows(papers, { unitName = u => u } = {}) {
                          : `<span class="hint">做到第 ${s.scored + 1} 题，目前 ${s.earned} 分</span>`}</td>
       </tr>`;
     }).join('')}</tbody></table>`;
+}
+
+// ------------------------------------------------------------------ grade
+// Boundaries move every series - P1's A line has been anywhere from 41 to 60
+// in the last nine - so a score is graded against every published series and
+// the tally is shown, rather than one series being picked as "the" answer.
+
+const GRADES = ['A', 'B', 'C', 'D', 'E'];
+const UMS_AT = { A: 80, B: 70, C: 60, D: 50, E: 40 };
+
+function against(score, b) {
+  for (const g of GRADES) if (score >= b[g]) return g;
+  return 'U';
+}
+
+export function gradeOf(score, unit, boundaries) {
+  const rows = Object.entries(boundaries || {})
+    .filter(([, s]) => s[unit]).sort(([a], [b]) => a.localeCompare(b));
+  if (!rows.length) return null;
+
+  const tally = {};
+  for (const [, s] of rows) {
+    const g = against(score, s[unit]);
+    tally[g] = (tally[g] || 0) + 1;
+  }
+  const grade = [...GRADES, 'U'].sort((a, b) => (tally[b] || 0) - (tally[a] || 0)
+    || GRADES.indexOf(a) - GRADES.indexOf(b))[0];
+
+  const median = {};
+  for (const g of GRADES) {
+    const v = rows.map(([, s]) => s[unit][g]).sort((a, b) => a - b);
+    median[g] = v[Math.floor(v.length / 2)];
+  }
+  const max = rows[rows.length - 1][1][unit].max;
+
+  // UMS by straight lines between the median grade points
+  const pts = [[max, 100], ...GRADES.map(g => [median[g], UMS_AT[g]]), [0, 0]];
+  let ums = score >= max ? 100 : 0;
+  for (let i = 0; i < pts.length - 1 && !ums; i++) {
+    const [hi, hu] = pts[i], [lo, lu] = pts[i + 1];
+    if (score < hi && score >= lo) ums = lu + (score - lo) * (hu - lu) / (hi - lo);
+  }
+
+  const up = grade === 'U' ? 'E' : GRADES[GRADES.indexOf(grade) - 1];
+  return {
+    grade, tally, series: rows.length, median, max, ums: Math.round(ums),
+    first: rows[0][0], last: rows[rows.length - 1][0],
+    next: up ? { grade: up, gap: Math.max(1, median[up] - score) } : null,
+  };
+}
+
+// ----------------------------------------------------------------- summary
+// What a finished paper says about the student: the grade, where the marks
+// went by topic, why (from the reasons they ticked), and which questions.
+
+export function renderSummary(el, paper, { questions, attempts, boundaries,
+                                           topicsOf, topicName, reasonLabel,
+                                           sectionName = id => id, onOpen }) {
+  const s = scoreOf(paper);
+  const qs = paper.question_ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
+  const scores = paper.scores || {};
+
+  // the attempt made for each question while this paper was open
+  const since = paper.created_at;
+  const tried = new Map();
+  for (const q of qs) {
+    const a = attempts.find(x => x.question_id === q.id && x.created_at >= since);
+    if (a) tried.set(q.id, a);
+  }
+
+  const lostBy = new Map(), lostQ = [];
+  for (const q of qs) {
+    const lost = q.marks - (Number(scores[q.id]) || 0);
+    if (lost <= 0) continue;
+    lostQ.push([q, lost]);
+    const ts = topicsOf(q);
+    for (const t of ts) lostBy.set(t, (lostBy.get(t) || 0) + lost / ts.length);
+  }
+  lostQ.sort((a, b) => b[1] - a[1]);
+  const topics = [...lostBy.entries()].sort((a, b) => b[1] - a[1]);
+
+  const reasons = new Map(), flagged = new Map();
+  for (const a of tried.values()) {
+    for (const r of a.reasons || []) reasons.set(r, (reasons.get(r) || 0) + 1);
+    for (const w of a.weak_sections || []) flagged.set(w, (flagged.get(w) || 0) + 1);
+  }
+
+  const g = boundaries ? gradeOf(s.earned, paper.unit, boundaries) : null;
+  const tallyText = g ? [...GRADES, 'U'].filter(x => g.tally[x])
+    .map(x => `${g.tally[x]} 季为 ${x}`).join('、') : '';
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:12px">
+      <div class="qhead">
+        <h2>这套卷子的分析</h2>
+        <span class="badge">${s.earned} / ${s.max} 分</span>
+        ${g ? `<span class="badge ${g.grade === 'U' ? 'b' : ''}" style="font-size:14px">预估 ${g.grade}</span>
+               <span class="badge g">约 ${g.ums} UMS</span>` : ''}
+      </div>
+      ${g ? `<div class="hint">
+        按 ${g.first}–${g.last} 共 ${g.series} 季的官方分数线：${tallyText}。
+        ${g.next ? `距 ${g.next.grade} 线（近几季中位数 ${g.median[g.next.grade]} 分）还差 ${g.next.gap} 分。` : '已经是最高等级。'}
+        单科不评 A*，A* 按整个资格的 UMS 计算。
+      </div>` : ''}
+
+      ${topics.length ? `
+        <h3 style="font-size:14px;margin:16px 0 6px">丢分在哪些知识点</h3>
+        <table><tbody>${topics.map(([t, n]) => `<tr>
+          <td style="width:46%">${esc(topicName(t))}</td>
+          <td><div class="row" style="gap:8px"><div class="bar-gauge" style="flex:1">
+            <span style="width:${Math.round(n / (s.max - s.earned) * 100)}%"></span></div>
+            <span class="hint">丢 ${Math.round(n * 10) / 10} 分</span></div></td></tr>`).join('')}
+        </tbody></table>` : '<div class="hint" style="margin-top:12px">一分没丢。</div>'}
+
+      ${reasons.size ? `
+        <h3 style="font-size:14px;margin:16px 0 6px">为什么丢分</h3>
+        <div class="picks">${[...reasons.entries()].sort((a, b) => b[1] - a[1]).map(([r, n]) =>
+          `<span class="badge g">${esc(reasonLabel(r))} ×${n}</span>`).join('')}</div>` : ''}
+
+      ${flagged.size ? `
+        <h3 style="font-size:14px;margin:16px 0 6px">自己标了没掌握的</h3>
+        <div class="picks">${[...flagged.keys()].map(w =>
+          `<span class="badge w">${esc(sectionName(w))}</span>`).join('')}</div>` : ''}
+
+      ${lostQ.length ? `
+        <h3 style="font-size:14px;margin:16px 0 6px">丢分的题</h3>
+        <div class="picks">${lostQ.map(([q, lost]) => {
+          const i = paper.question_ids.indexOf(q.id) + 1;
+          return `<button class="pick" data-q="${esc(q.id)}">Q${i} · 丢 ${lost} 分 · ${esc(topicsOf(q).map(topicName).join(' / '))}</button>`;
+        }).join('')}</div>
+        <div class="hint" style="margin-top:6px">点一道回去看评分方案。</div>` : ''}
+    </div>`;
+
+  for (const b of el.querySelectorAll('[data-q]')) b.onclick = () => onOpen(b.dataset.q);
 }

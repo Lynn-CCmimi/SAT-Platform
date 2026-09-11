@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SAT 数学练习</title>
-<link rel="stylesheet" href="assets/style.css?v=b7deeab1">
+<link rel="stylesheet" href="assets/style.css?v=e4700407">
 <script src="config.js"></script>
 </head>
 <body>
@@ -27,6 +27,7 @@
         <div class="tab" id="tabPractice" role="tab" aria-selected="true">练习</div>
         <div class="tab" id="tabWork" role="tab" aria-selected="false">作业</div>
         <div class="tab" id="tabWrong" role="tab" aria-selected="false">错题本</div>
+        <div class="tab" id="tabAnalysis" role="tab" aria-selected="false">分析</div>
       </div>
       <span class="spacer"></span>
       <span class="who" id="who"></span>
@@ -50,6 +51,10 @@
       <div id="workList"></div>
     </section>
 
+    <section id="viewAnalysis" hidden>
+      <div id="analysis"></div>
+    </section>
+
     <section id="viewWrong" hidden>
       <div class="chips" id="wrongFilter"></div>
       <div id="wrongList"></div>
@@ -58,6 +63,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="assets/app.js?v=b7deeab1"></script>
+<script type="module" src="assets/app.js?v=e4700407"></script>
 </body>
 </html>
