@@ -1,13 +1,14 @@
-import * as db from './db.js?v=e4700407';
-import * as assign from './assign.js?v=e4700407';
-import * as photos from './photos.js?v=e4700407';
-import * as analysis from './analysis.js?v=e4700407';
+import * as db from './db.js?v=c0c4ccfd';
+import * as assign from './assign.js?v=c0c4ccfd';
+import * as photos from './photos.js?v=c0c4ccfd';
+import * as analysis from './analysis.js?v=c0c4ccfd';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
 const REASONS = [
   ['misread', '看错题'], ['slip', '抄错/算错'], ['unknown', '知识点不会'],
   ['stuck', '知道方法但卡住'], ['english', '英文没读懂'], ['time', '时间不够'],
+  ['other', '其他'],
 ];
 
 let DATA = null;
@@ -343,6 +344,8 @@ function renderAfter() {
         <h3>为什么错了？</h3>
         <div class="picks" id="reasons">${REASONS.map(([k, v]) =>
           `<button class="pick" data-k="${k}" aria-pressed="false">${v}</button>`).join('')}</div>
+        <input class="spr" id="otherNote" hidden placeholder="写一下是什么问题"
+               style="width:100%;max-width:480px;margin-top:8px;font-size:14px" maxlength="120">
 
         <div class="ref"><div class="h">这道题考的知识点</div>
           <div class="picks"><button class="pick sec" id="weak" aria-pressed="false">${
@@ -365,6 +368,10 @@ function renderAfter() {
       const k = el.dataset.k;
       state.reasons.has(k) ? state.reasons.delete(k) : state.reasons.add(k);
       el.setAttribute('aria-pressed', state.reasons.has(k));
+      if (k === 'other') {
+        $('otherNote').hidden = !state.reasons.has('other');
+        if (!$('otherNote').hidden) $('otherNote').focus();
+      }
     };
   }
   $('weak').onclick = () => {
@@ -382,6 +389,7 @@ async function saveDetail() {
   try {
     const patch = {
       reasons: [...state.reasons],
+      reason_note: state.reasons.has('other') ? ($('otherNote')?.value.trim() || null) : null,
       weak_sections: state.weak ? [cur.s] : [],
     };
     if (state.up?.blobs.length) {
@@ -460,7 +468,9 @@ function renderWrong() {
             <strong>${q ? esc(DATA.skills[q.s].name) : esc(a.question_id)}</strong>
             ${q ? `<span class="diff ${q.x}">${LEVEL[q.x]}</span>` : ''}
             ${(a.reasons || []).map(k =>
-              `<span class="badge g">${(REASONS.find(r => r[0] === k) || [, k])[1]}</span>`).join('')}
+              `<span class="badge g">${k === 'other' && a.reason_note
+                ? '其他：' + esc(a.reason_note)
+                : (REASONS.find(r => r[0] === k) || [, k])[1]}</span>`).join('')}
             <span class="n">${new Date(a.created_at).toLocaleDateString('zh-CN')}</span>
           </summary>
           <div class="qbody" data-a="${a.id}"></div>

@@ -1,12 +1,12 @@
-import * as db from './db.js?v=e4700407';
-import * as assign from './assign.js?v=e4700407';
-import * as photos from './photos.js?v=e4700407';
+import * as db from './db.js?v=c0c4ccfd';
+import * as assign from './assign.js?v=c0c4ccfd';
+import * as photos from './photos.js?v=c0c4ccfd';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
 const REASON_LABEL = {
   misread: '看错题', slip: '抄错/算错', unknown: '知识点不会',
-  stuck: '知道方法但卡住', english: '英文没读懂', time: '时间不够',
+  stuck: '知道方法但卡住', english: '英文没读懂', time: '时间不够', other: '其他',
 };
 
 let DATA = null;
@@ -179,7 +179,8 @@ function showStudent(id) {
           <span class="badge ${r.result === 'correct' ? '' : 'b'}">${
             r.result === 'correct' ? '做对' : '做错'}</span>
           ${(r.reasons || []).map(k =>
-            `<span class="badge g">${REASON_LABEL[k] || k}</span>`).join('')}
+            `<span class="badge g">${k === 'other' && r.reason_note
+              ? '其他：' + esc(r.reason_note) : (REASON_LABEL[k] || k)}</span>`).join('')}
           <span class="n">${day(r.created_at)}</span>
         </summary>
         <div class="qbody" data-q="${esc(r.question_id)}" data-ans="${esc(r.note || '')}"
@@ -246,7 +247,22 @@ function renderWeak() {
         <td><div class="row" style="gap:8px"><div class="bar-gauge" style="flex:1">
           <span style="width:${Math.round((n / total) * 100)}%"></span></div>
           <span class="hint">${n}</span></div></td></tr>`).join('')}
-      </tbody></table>` : '<div class="empty">还没有数据</div>'}`;
+      </tbody></table>` : '<div class="empty">还没有数据</div>'}
+
+    ${(() => {
+      // what students typed under 其他 - the raw material for the next
+      // category worth adding to the fixed list
+      const notes = rows.filter(r => r.reason_note).slice(0, 15);
+      if (!notes.length) return '';
+      const name = id => students.find(s => s.id === id)?.display_name || '';
+      return `<h3 style="margin:18px 0 4px;font-size:15px">学生自己写的「其他」</h3>
+        <p class="hint" style="margin:0 0 8px">同一类写法出现多了，就该加成正式选项</p>
+        <table><tbody>${notes.map(r =>
+          `<tr><td style="width:22%" class="hint">${esc(name(r.student_id))}</td>
+           <td>${esc(r.reason_note)}</td>
+           <td class="hint" style="width:18%">${day(r.created_at)}</td></tr>`).join('')}
+        </tbody></table>`;
+    })()}`;
 }
 
 // ------------------------------------------------------------- assignments
