@@ -1,6 +1,6 @@
-import * as db from './db.js?v=c0c4ccfd';
-import * as assign from './assign.js?v=c0c4ccfd';
-import * as photos from './photos.js?v=c0c4ccfd';
+import * as db from './db.js?v=0211528a';
+import * as assign from './assign.js?v=0211528a';
+import * as photos from './photos.js?v=0211528a';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -290,9 +290,25 @@ function mountAssign() {
   renderAssignList();
 }
 
+const LEVEL_EN = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+function pdfSpec(a, kind) {
+  const qs = a.question_ids.map(id => DATA.questions.find(q => q.id === id)).filter(Boolean);
+  return {
+    title: `作业 ${a.title}`,
+    fileName: `作业-${a.title.replace(/[\\/:*?"<>|]/g, '')}${kind === 'answers' ? '-答案' : ''}.pdf`,
+    lines: [`共 ${qs.length} 题`],
+    items: qs.map((q, i) => ({
+      label: `Q${i + 1}`, marks: null,
+      note: `${DATA.skills[q.s]?.name || ''} · ${LEVEL_EN[q.x] || q.x}`,
+      images: (kind === 'answers' ? q.r : q.i).map(src => B + src),
+    })).filter(it => it.images.length),
+  };
+}
+
 function renderAssignList() {
   assign.renderTeacherList($('assignList'), {
     assignments: sets, attempts: rows, students,
+    pdfSpec, onError: toast,
     onDeleted: async err => {
       if (err) return toast('删除失败：' + err);
       sets = await db.myAssignments();

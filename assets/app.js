@@ -1,7 +1,8 @@
-import * as db from './db.js?v=c0c4ccfd';
-import * as assign from './assign.js?v=c0c4ccfd';
-import * as photos from './photos.js?v=c0c4ccfd';
-import * as analysis from './analysis.js?v=c0c4ccfd';
+import * as db from './db.js?v=0211528a';
+import * as assign from './assign.js?v=0211528a';
+import * as photos from './photos.js?v=0211528a';
+import * as analysis from './analysis.js?v=0211528a';
+import * as pdf from './pdf.js?v=0211528a';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -162,6 +163,22 @@ function renderWork() {
   });
 }
 
+const LEVEL_EN = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+function pdfSpec(a, kind) {
+  const qs = a.question_ids.map(id => DATA.questions.find(q => q.id === id)).filter(Boolean);
+  return {
+    title: `作业 ${a.title}`,
+    fileName: `作业-${a.title.replace(/[\\/:*?"<>|]/g, '')}${kind === 'answers' ? '-答案' : ''}.pdf`,
+    lines: [`共 ${qs.length} 题`],
+    items: qs.map((q, i) => ({
+      label: `Q${i + 1}`,
+      note: `${DATA.skills[q.s]?.name || ''} · ${LEVEL_EN[q.x] || q.x}`,
+      marks: null,
+      images: (kind === 'answers' ? q.r : q.i).map(src => B + src),
+    })).filter(it => it.images.length),
+  };
+}
+
 function openAssignment(a) {
   active = a;
   cur = null;
@@ -188,6 +205,11 @@ function renderFilters() {
         renderList();
       },
     }));
+    const tools = document.createElement('div');
+    tools.className = 'row';
+    tools.style.cssText = 'margin:-4px 0 12px';
+    bar.appendChild(tools);
+    pdf.buttons(tools, { set: kind => pdfSpec(active, kind), onError: toast });
     return;
   }
   const done = list => list.filter(q => latest[q.id]).length;

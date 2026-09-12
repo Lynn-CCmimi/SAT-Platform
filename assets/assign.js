@@ -12,7 +12,8 @@
 // note:    q => string     short right-hand note, e.g. difficulty
 // preview: q => string[]   image urls, so the teacher picks by seeing the question
 
-import * as db from './db.js?v=c0c4ccfd';
+import * as db from './db.js?v=0211528a';
+import * as pdf from './pdf.js?v=0211528a';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -294,7 +295,10 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
 }
 
 // The list of what has been set, with each named student's progress.
-export function renderTeacherList(el, { assignments, attempts, students, onDeleted }) {
+// `pdfSpec(assignment, kind)` is optional; when given, each set gets the
+// download buttons so the teacher can hand out paper copies.
+export function renderTeacherList(el, { assignments, attempts, students, onDeleted,
+                                        pdfSpec = null, onError = () => {} }) {
   if (!assignments.length) {
     el.innerHTML = '<div class="empty">还没有布置过作业</div>';
     return;
@@ -314,12 +318,20 @@ export function renderTeacherList(el, { assignments, attempts, students, onDelet
             <td style="width:22%" class="hint">做对 ${p.right}</td></tr>`;
         }).join('')}</tbody></table>
         <div class="row" style="margin-top:10px">
+          ${pdfSpec ? `<span class="row" data-pdf-for="${a.id}"></span>` : ''}
+          <span class="spacer"></span>
           <button class="plain" data-del="${a.id}">删除这份作业</button>
-          <span class="hint">删除不会动学生已有的练习记录</span>
+          <span class="hint">不会动学生已有的练习记录</span>
         </div>
       </div>
     </details>`).join('');
 
+  if (pdfSpec) {
+    for (const box of el.querySelectorAll('[data-pdf-for]')) {
+      const a = assignments.find(x => String(x.id) === box.dataset.pdfFor);
+      pdf.buttons(box, { set: kind => pdfSpec(a, kind), onError });
+    }
+  }
   for (const b of el.querySelectorAll('[data-del]')) {
     b.onclick = async () => {
       b.disabled = true;
