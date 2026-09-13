@@ -1,6 +1,6 @@
-import * as db from './db.js?v=0211528a';
-import * as assign from './assign.js?v=0211528a';
-import * as photos from './photos.js?v=0211528a';
+import * as db from './db.js?v=13e8727f';
+import * as assign from './assign.js?v=13e8727f';
+import * as photos from './photos.js?v=13e8727f';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };

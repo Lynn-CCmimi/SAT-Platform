@@ -8,7 +8,7 @@
 // pathsOf() hides the difference, and any edit writes the row back in the new
 // shape.
 
-import * as db from './db.js?v=0211528a';
+import * as db from './db.js?v=13e8727f';
 
 const MAX = 6;
 
@@ -21,6 +21,10 @@ export function pathsOf(attempt) {
 
 // Photos chosen but not yet uploaded. Returns { blobs } - the same array it
 // keeps mutating, so the caller can read it at save time.
+//
+// No `capture` attribute on the inputs: on iOS it sends the student straight
+// to the camera and hides the photo library, so a picture already taken could
+// not be chosen. Without it iOS offers camera / library / files.
 export function uploader(el, { onError = () => {} } = {}) {
   const blobs = [];
 
@@ -32,7 +36,7 @@ export function uploader(el, { onError = () => {} } = {}) {
       ${blobs.length < MAX
         ? `<div class="drop" data-add>${blobs.length ? '再拍一张' : '点这里拍照或选图片'}</div>`
         : `<div class="hint">最多 ${MAX} 张</div>`}
-      <input type="file" accept="image/*" capture="environment" multiple hidden>`;
+      <input type="file" accept="image/*" multiple hidden>`;
 
     const file = el.querySelector('input[type=file]');
     el.querySelector('[data-add]')?.addEventListener('click', () => file.click());
@@ -82,7 +86,7 @@ export async function gallery(el, attempt, { editable = false, userId = null,
         : (editable ? '' : '<div class="hint">没有订正照片</div>')}
       ${editable && paths.length < MAX
         ? `<div class="drop" data-add>${paths.length ? '补拍一张' : '补一张订正照片'}</div>
-           <input type="file" accept="image/*" capture="environment" multiple hidden>`
+           <input type="file" accept="image/*" multiple hidden>`
         : ''}`;
 
     const file = el.querySelector('input[type=file]');
