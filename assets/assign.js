@@ -12,8 +12,8 @@
 // note:    q => string     short right-hand note, e.g. difficulty
 // preview: q => string[]   image urls, so the teacher picks by seeing the question
 
-import * as db from './db.js?v=13e8727f';
-import * as pdf from './pdf.js?v=13e8727f';
+import * as db from './db.js?v=4478953d';
+import * as pdf from './pdf.js?v=4478953d';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -163,6 +163,9 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
 
   function draw() {
     const list = visible();
+    // a redraw replaces the list; keep the teacher where they were in it
+    const keepList = el.querySelector('.list')?.scrollTop || 0;
+    const keepPage = window.scrollY;
     el.innerHTML = `
       <div class="card" style="margin-bottom:12px">
         <h3 style="margin:0 0 8px;font-size:15px">布置给谁</h3>
@@ -231,6 +234,9 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
       it.onclick = () => { previewing = it.dataset.q; draw(); };
     }
     if (previewing) drawPreview(questions.find(q => q.id === previewing));
+    const listEl = el.querySelector('.list');
+    if (listEl) listEl.scrollTop = keepList;
+    window.scrollTo(0, keepPage);
 
     el.querySelector('#pickAll').onclick = () => { for (const q of visible()) chosen.add(q.id); draw(); };
     el.querySelector('#pickNone').onclick = () => { chosen.clear(); draw(); };

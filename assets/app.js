@@ -1,8 +1,8 @@
-import * as db from './db.js?v=13e8727f';
-import * as assign from './assign.js?v=13e8727f';
-import * as photos from './photos.js?v=13e8727f';
-import * as analysis from './analysis.js?v=13e8727f';
-import * as pdf from './pdf.js?v=13e8727f';
+import * as db from './db.js?v=4478953d';
+import * as assign from './assign.js?v=4478953d';
+import * as photos from './photos.js?v=4478953d';
+import * as analysis from './analysis.js?v=4478953d';
+import * as pdf from './pdf.js?v=4478953d';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -244,7 +244,10 @@ function renderFilters() {
   };
 }
 
-function renderList() {
+// keep=true after an answer is saved: the list is rebuilt for the status dot,
+// and the student should stay where they were, not be sent back to the top
+function renderList(keep = false) {
+  const keepScroll = keep ? $('qlist').scrollTop : 0;
   const qs = visible();
   if (!qs.length) {
     $('qlist').innerHTML = '<div class="empty">没有符合条件的题</div>';
@@ -262,6 +265,7 @@ function renderList() {
     </div>`;
   }).join('');
   for (const el of $('qlist').children) el.onclick = () => show(el.dataset.id);
+  $('qlist').scrollTop = keepScroll;
 }
 
 // ------------------------------------------------------------- question
@@ -270,7 +274,7 @@ function show(id) {
   cur = DATA.questions.find(q => q.id === id);
   state = { chosen: null, submitted: false, right: false, attempt: null,
             reasons: new Set(), weak: false, up: null };
-  renderList();
+  renderList(true);        // only the highlight changes; stay put
   renderPanel();
   $('qpanel').scrollIntoView({ block: 'nearest' });
 }
@@ -342,7 +346,7 @@ async function submit() {
     ATTEMPTS.unshift(state.attempt);
     reindex();
     renderFilters();
-    renderList();
+    renderList(true);
   } catch (err) {
     toast('记录没存上：' + (err.message || err));
   }
