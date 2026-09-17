@@ -1,8 +1,9 @@
-import * as db from './db.js?v=4478953d';
-import * as assign from './assign.js?v=4478953d';
-import * as photos from './photos.js?v=4478953d';
-import * as analysis from './analysis.js?v=4478953d';
-import * as pdf from './pdf.js?v=4478953d';
+import * as db from './db.js?v=77cc52cb';
+import * as assign from './assign.js?v=77cc52cb';
+import * as photos from './photos.js?v=77cc52cb';
+import * as analysis from './analysis.js?v=77cc52cb';
+import * as pdf from './pdf.js?v=77cc52cb';
+import * as history from './history.js?v=77cc52cb';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -282,18 +283,20 @@ function show(id) {
 function renderPanel() {
   const q = cur;
   const skill = DATA.skills[q.s];
-  const prev = latest[q.id];
-
   $('qpanel').innerHTML = `
     <div class="qhead">
       <h2>${esc(skill.domain)} · ${esc(skill.name)}</h2>
       <span class="diff ${q.x}">${LEVEL[q.x] || q.x}</span>
-      ${prev ? `<span class="badge ${prev.result === 'correct' ? '' : 'b'}">上次${
-        prev.result === 'correct' ? '做对了' : '做错了'}</span>` : ''}
     </div>
+    <div id="hist" hidden></div>
     ${q.i.map(src => `<img class="paper" loading="lazy" src="${B}${src}" alt="题目">`).join('')}
     <div class="assess" id="answer"></div>
     <div id="after"></div>`;
+  history.render($('hist'), ATTEMPTS.filter(a => a.question_id === q.id), {
+    reasonLabel: k => (REASONS.find(r => r[0] === k) || [, k])[1],
+    word: r => (r === 'correct' ? '做对' : '做错'),
+    extra: a => (a.note ? '填的 ' + a.note : null),
+  });
   renderAnswer();
 }
 
@@ -341,6 +344,8 @@ async function submit() {
       question_id: q.id,
       unit: q.d,
       result: state.right ? 'correct' : 'unknown',
+      marks: state.right ? 1 : 0,
+      assignment_id: active?.id ?? null,
       note: given,
     });
     ATTEMPTS.unshift(state.attempt);

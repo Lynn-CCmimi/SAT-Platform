@@ -1,6 +1,6 @@
-import * as db from './db.js?v=4478953d';
-import * as assign from './assign.js?v=4478953d';
-import * as photos from './photos.js?v=4478953d';
+import * as db from './db.js?v=77cc52cb';
+import * as assign from './assign.js?v=77cc52cb';
+import * as photos from './photos.js?v=77cc52cb';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -13,6 +13,7 @@ let DATA = null;
 let students = [];
 let rows = [];
 let sets = [];
+let recFilter = 'all';   // all | set | own - which records the student detail lists
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
@@ -169,12 +170,17 @@ function showStudent(id) {
         `<span class="badge g">${REASON_LABEL[k] || k} ×${n}</span>`).join('')}</div>` : ''}
 
     <h3 style="font-size:14px;margin:16px 0 6px">练习记录</h3>
-    ${mine.slice(0, 40).map(r => {
+    <div class="chips" style="margin-bottom:8px">${[['all', '全部'], ['set', '作业'], ['own', '自练']].map(([k, v]) =>
+      `<button class="chip" data-rf="${k}" aria-pressed="${recFilter === k}">${v}<b>${
+        k === 'all' ? mine.length : mine.filter(r => (setOf(r) != null) === (k === 'set')).length}</b></button>`).join('')}</div>
+    ${mine.filter(r => recFilter === 'all' || (setOf(r) != null) === (recFilter === 'set')).slice(0, 40).map(r => {
       const q = DATA.questions.find(x => x.id === r.question_id);
+      const set = setOf(r);
       return `<details class="qitem" style="margin-left:0">
         <summary>
           <span class="caret">▶</span>
           <strong>${q ? esc(skillName(q.s)) : esc(r.question_id)}</strong>
+          ${set ? `<span class="badge g" title="作业">📝 ${esc(set.title)}</span>` : ''}
           ${q ? `<span class="diff ${q.x}">${LEVEL[q.x]}</span>` : ''}
           <span class="badge ${r.result === 'correct' ? '' : 'b'}">${
             r.result === 'correct' ? '做对' : '做错'}</span>
@@ -191,6 +197,15 @@ function showStudent(id) {
   for (const el of $('detail').querySelectorAll('.qitem')) {
     el.addEventListener('toggle', () => el.open && fillBody(el), { once: true });
   }
+  for (const b of $('detail').querySelectorAll('[data-rf]')) {
+    b.onclick = () => { recFilter = b.dataset.rf; showStudent(id); };
+  }
+}
+
+// The assignment a record was made in, if any (see assign.belongs for the
+// fallback on rows older than the stamp).
+function setOf(r) {
+  return sets.find(a => assign.belongs(a, r)) || null;
 }
 
 async function fillBody(item) {
@@ -305,9 +320,33 @@ function pdfSpec(a, kind) {
   };
 }
 
+// How the grid shows this board's questions and attempts. SAT is auto-marked,
+// so a cell is right or wrong and the detail shows what was typed.
+const board = {
+  marksOf: () => null,
+  heading: q => `${DATA.skills[q.s]?.name || ''} · ${LEVEL[q.x] || q.x}`,
+  reasonLabel: k => REASON_LABEL[k] || k,
+  question: (el, q) => {
+    el.innerHTML = q.i.map(src => `<img class="paper" loading="lazy" src="${B}${src}" alt="题目">`).join('')
+      + `<div class="hint">正确答案：${esc(q.a || '—')}</div>`
+      + (q.r?.length ? `<details style="margin-top:8px"><summary class="hint" style="cursor:pointer">解析</summary>${
+          q.r.map(src => `<img class="paper" loading="lazy" src="${B}${src}" alt="解析">`).join('')}</details>` : '');
+  },
+  attempt: async (el, a, q) => {
+    el.innerHTML = `<div class="hint" style="margin-top:4px">填的：${esc(a.note || '—')}${
+      q ? `　正确答案：${esc(q.a || '—')}` : ''}</div>`;
+    if (photos.pathsOf(a).length) {
+      const shots = document.createElement('div');
+      el.appendChild(shots);
+      await photos.gallery(shots, a);
+    }
+  },
+};
+
 function renderAssignList() {
   assign.renderTeacherList($('assignList'), {
     assignments: sets, attempts: rows, students,
+    questions: DATA.questions, board,
     pdfSpec, onError: toast,
     onDeleted: async err => {
       if (err) return toast('删除失败：' + err);

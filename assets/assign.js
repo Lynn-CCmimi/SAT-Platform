@@ -12,8 +12,8 @@
 // note:    q => string     short right-hand note, e.g. difficulty
 // preview: q => string[]   image urls, so the teacher picks by seeing the question
 
-import * as db from './db.js?v=4478953d';
-import * as pdf from './pdf.js?v=4478953d';
+import * as db from './db.js?v=77cc52cb';
+import * as pdf from './pdf.js?v=77cc52cb';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -21,18 +21,38 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
 // ---------------------------------------------------------------- progress
 
 // Doing the question is what completes it, so progress is read out of attempts
-// rather than tracked separately. A question answered twice still counts once.
+// rather than tracked separately. Only work done inside the assignment counts:
+// the student app stamps `assignment_id` on those rows, so a question
+// practised on one's own beforehand is still owed.
+//
+// Rows from before the stamp existed have no id. For those, being made after
+// the assignment was set is the best available sign; the cut-off keeps this
+// guess from ever applying to newer rows, which are stamped or not.
+const STAMPED_SINCE = '2026-09-17T01:16:54Z';
+
+export function belongs(assignment, a) {
+  if (a.assignment_id != null) return a.assignment_id === assignment.id;
+  return a.created_at < STAMPED_SINCE
+    && a.created_at >= assignment.created_at
+    && assignment.question_ids.includes(a.question_id);
+}
+
+// The attempts made in an assignment, newest first, optionally for one student.
+export function attemptsIn(assignment, attempts, studentId) {
+  return attempts.filter(a =>
+    (!studentId || a.student_id === studentId) && belongs(assignment, a));
+}
+
+// A question answered twice still counts once; its latest attempt speaks.
 export function progressOf(assignment, attempts, studentId) {
-  const want = new Set(assignment.question_ids);
   const done = new Set();
   let right = 0;
-  for (const a of attempts) {
-    if (studentId && a.student_id !== studentId) continue;
-    if (!want.has(a.question_id) || done.has(a.question_id)) continue;
+  for (const a of attemptsIn(assignment, attempts, studentId)) {
+    if (done.has(a.question_id)) continue;
     done.add(a.question_id);
     if (a.result === 'correct') right += 1;
   }
-  return { done: done.size, total: want.size, right };
+  return { done: done.size, total: assignment.question_ids.length, right };
 }
 
 const dueLabel = d => {
@@ -300,31 +320,39 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
   draw();
 }
 
-// The list of what has been set, with each named student's progress.
+// The list of what has been set. Each set opens into a student × question
+// grid of the work done inside it, so the teacher sees at a glance who has
+// done what, which question tripped everyone, and can open any cell.
+//
+// board: {
+//   marksOf:  q => number|null     full marks, null where questions are unscored (SAT)
+//   heading:  q => string          one line naming the question
+//   question: (el, q) => void      fill `el` with the question itself
+//   attempt:  (el, a, q) => void   fill `el` with one attempt's details (photos etc.)
+//   reasonLabel: k => string
+// }
 // `pdfSpec(assignment, kind)` is optional; when given, each set gets the
 // download buttons so the teacher can hand out paper copies.
-export function renderTeacherList(el, { assignments, attempts, students, onDeleted,
-                                        pdfSpec = null, onError = () => {} }) {
+export function renderTeacherList(el, { assignments, attempts, students, questions, board,
+                                        onDeleted, pdfSpec = null, onError = () => {} }) {
   if (!assignments.length) {
     el.innerHTML = '<div class="empty">还没有布置过作业</div>';
     return;
   }
   const name = id => students.find(s => s.id === id)?.display_name || '（已删除的学生）';
+  const opened = new Set([...el.querySelectorAll('details[open]')].map(d => d.dataset.id));
 
   el.innerHTML = assignments.map(a => `
-    <details class="grp">
+    <details class="grp" data-id="${a.id}" ${opened.has(String(a.id)) ? 'open' : ''}>
       <summary><span class="caret">▶</span>${esc(a.title)}
         <span class="n">${a.question_ids.length} 题 · ${a.student_ids.length} 人${
           a.due_on ? ' · ' + esc(dueLabel(a.due_on)) : ''}</span></summary>
       <div style="padding:6px 16px 14px">
-        <table><tbody>${a.student_ids.map(sid => {
-          const p = progressOf(a, attempts, sid);
-          return `<tr><td style="width:30%">${esc(name(sid))}</td>
-            <td>${gauge(p.done, p.total)}</td>
-            <td style="width:22%" class="hint">做对 ${p.right}</td></tr>`;
-        }).join('')}</tbody></table>
-        <div class="row" style="margin-top:10px">
+        <div data-grid></div>
+        <div data-panel></div>
+        <div class="row" style="margin-top:12px">
           ${pdfSpec ? `<span class="row" data-pdf-for="${a.id}"></span>` : ''}
+          <button class="plain" data-all>展开全部题目</button>
           <span class="spacer"></span>
           <button class="plain" data-del="${a.id}">删除这份作业</button>
           <span class="hint">不会动学生已有的练习记录</span>
@@ -332,6 +360,10 @@ export function renderTeacherList(el, { assignments, attempts, students, onDelet
       </div>
     </details>`).join('');
 
+  for (const box of el.querySelectorAll('details.grp')) {
+    const a = assignments.find(x => String(x.id) === box.dataset.id);
+    mountGrid(box, a, { attempts, students, questions, board, name });
+  }
   if (pdfSpec) {
     for (const box of el.querySelectorAll('[data-pdf-for]')) {
       const a = assignments.find(x => String(x.id) === box.dataset.pdfFor);
@@ -340,6 +372,7 @@ export function renderTeacherList(el, { assignments, attempts, students, onDelet
   }
   for (const b of el.querySelectorAll('[data-del]')) {
     b.onclick = async () => {
+      if (!confirm('删除这份作业？')) return;
       b.disabled = true;
       try {
         await db.deleteAssignment(Number(b.dataset.del));
@@ -348,6 +381,132 @@ export function renderTeacherList(el, { assignments, attempts, students, onDelet
         b.disabled = false;
         onDeleted(err.message || String(err));
       }
+    };
+  }
+}
+
+const RESULT_MARK = { correct: '✓', partial: '△', unknown: '✗' };
+const RESULT_WORD = { correct: '全对', partial: '部分对', unknown: '不会' };
+const when = t => new Date(t).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric',
+                                                          hour: '2-digit', minute: '2-digit' });
+
+function mountGrid(box, a, { attempts, students, questions, board, name }) {
+  const grid = box.querySelector('[data-grid]');
+  const panel = box.querySelector('[data-panel]');
+  const qs = a.question_ids.map(id => questions.find(q => q.id === id) || { id, missing: true });
+  const scored = qs.some(q => !q.missing && board.marksOf(q) != null);
+
+  // student -> question -> attempts in this set, newest first
+  const cell = new Map();
+  for (const sid of a.student_ids) cell.set(sid, new Map());
+  for (const x of attemptsIn(a, attempts)) {
+    const row = cell.get(x.student_id);
+    if (!row) continue;
+    if (!row.has(x.question_id)) row.set(x.question_id, []);
+    row.get(x.question_id).push(x);
+  }
+
+  const cellHtml = (sid, q) => {
+    const list = cell.get(sid).get(q.id) || [];
+    if (!list.length) return '<td class="cell none">·</td>';
+    const last = list[0];
+    const max = q.missing ? null : board.marksOf(q);
+    const face = scored && max != null && last.marks != null
+      ? `${last.marks}<span class="of">/${max}</span>` : RESULT_MARK[last.result] || '?';
+    return `<td class="cell ${last.result}" data-s="${sid}" data-q="${esc(q.id)}" role="button"
+      title="${esc(name(sid))} · ${RESULT_WORD[last.result] || ''}${list.length > 1 ? ` · 做了 ${list.length} 次` : ''}">${
+      face}${list.length > 1 ? `<sup>×${list.length}</sup>` : ''}</td>`;
+  };
+
+  // how many students' latest go at each question was not fully right
+  const missed = q => a.student_ids.filter(sid => {
+    const last = (cell.get(sid).get(q.id) || [])[0];
+    return last && last.result !== 'correct';
+  }).length;
+  const undone = q => a.student_ids.filter(sid => !cell.get(sid).has(q.id)).length;
+
+  grid.innerHTML = `
+    <div class="gridwrap"><table class="grid">
+      <thead><tr><th class="who"></th>${qs.map((q, i) =>
+        `<th data-q="${esc(q.id)}" role="button" title="${q.missing ? '题目不在当前题库中' : esc(board.heading(q))}">Q${i + 1}${
+          scored && !q.missing && board.marksOf(q) != null ? `<small>${board.marksOf(q)}分</small>` : ''}</th>`).join('')}
+        <th class="sum">完成</th></tr></thead>
+      <tbody>${a.student_ids.map(sid => {
+        const p = progressOf(a, attempts, sid);
+        return `<tr><td class="who">${esc(name(sid))}</td>${qs.map(q => cellHtml(sid, q)).join('')}
+          <td class="sum">${p.done}/${p.total}</td></tr>`;
+      }).join('')}
+      <tr class="foot"><td class="who">失分人数</td>${qs.map(q => {
+        const m = missed(q), u = undone(q);
+        return `<td class="${m ? 'hot' : ''}">${m || '<span class="hint">0</span>'}${
+          u ? `<small title="还没做的人数">未做 ${u}</small>` : ''}</td>`;
+      }).join('')}<td class="sum"></td></tr></tbody>
+    </table></div>
+    <div class="hint" style="margin-top:6px">点格子看那次作答，点 Q 序号看题目${scored ? '；格子里是得分/满分' : ''}</div>`;
+
+  let showing = null;   // 'q:<id>' | 'a:<sid>:<qid>' | 'all'
+  const open = (key, fill) => {
+    if (showing === key) { showing = null; panel.innerHTML = ''; return; }
+    showing = key;
+    panel.innerHTML = '<div class="card" style="margin-top:10px" data-body></div>';
+    fill(panel.querySelector('[data-body]'));
+    panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  };
+
+  const questionBlock = (q, i) => {
+    const body = document.createElement('div');
+    body.innerHTML = `<div class="qhead"><h2>Q${i + 1}</h2>
+      <span class="hint">${q.missing ? '题目不在当前题库中' : esc(board.heading(q))}</span></div>`;
+    if (!q.missing) {
+      const slot = document.createElement('div');
+      body.appendChild(slot);
+      board.question(slot, q);
+    }
+    return body;
+  };
+
+  for (const th of grid.querySelectorAll('th[data-q]')) {
+    th.onclick = () => {
+      const i = qs.findIndex(q => q.id === th.dataset.q);
+      open('q:' + th.dataset.q, el => el.appendChild(questionBlock(qs[i], i)));
+    };
+  }
+  box.querySelector('[data-all]').onclick = () => open('all', el => {
+    qs.forEach((q, i) => {
+      const b = questionBlock(q, i);
+      if (i) b.style.cssText = 'border-top:1px solid var(--line);margin-top:14px;padding-top:12px';
+      el.appendChild(b);
+    });
+  });
+
+  for (const td of grid.querySelectorAll('td.cell[data-s]')) {
+    td.onclick = () => {
+      const sid = td.dataset.s, qid = td.dataset.q;
+      const i = qs.findIndex(q => q.id === qid);
+      const q = qs[i];
+      const list = cell.get(sid).get(qid) || [];
+      open(`a:${sid}:${qid}`, el => {
+        el.innerHTML = `<div class="qhead"><h2>${esc(name(sid))} · Q${i + 1}</h2>
+          <span class="hint">${q.missing ? '' : esc(board.heading(q))}</span>
+          <span class="badge g">做了 ${list.length} 次</span></div>`;
+        // oldest first, so the story reads forward: wrong, then wrong again, then right
+        [...list].reverse().forEach((x, n) => {
+          const item = document.createElement('div');
+          item.className = 'try';
+          const max = q.missing ? null : board.marksOf(q);
+          item.innerHTML = `
+            <div class="row" style="gap:8px;flex-wrap:wrap">
+              <span class="badge ${x.result === 'correct' ? '' : x.result === 'partial' ? 'w' : 'b'}">第 ${n + 1} 次 · ${
+                x.marks != null && max != null ? `${x.marks}/${max} 分` : RESULT_WORD[x.result] || x.result}</span>
+              ${(x.reasons || []).map(k => `<span class="badge g">${
+                k === 'other' && x.reason_note ? '其他：' + esc(x.reason_note) : esc(board.reasonLabel(k))}</span>`).join('')}
+              <span class="hint" style="margin-left:auto">${when(x.created_at)}</span>
+            </div>
+            <div data-more></div>`;
+          el.appendChild(item);
+          board.attempt(item.querySelector('[data-more]'), x, q.missing ? null : q);
+        });
+      });
     };
   }
 }

@@ -224,3 +224,35 @@ details.grp>summary::marker,details.qitem>summary::marker{content:''}
 .diff.easy{background:var(--accent-soft);color:var(--accent)}
 .diff.medium{background:var(--warn-soft);color:var(--warn)}
 .diff.hard{background:var(--bad-soft);color:var(--bad)}
+
+/* assignment grid (teacher): students down, questions across */
+.gridwrap{overflow-x:auto;margin-top:4px}
+table.grid{width:auto;min-width:100%}
+table.grid th,table.grid td{text-align:center;padding:6px 8px;white-space:nowrap}
+table.grid th[data-q]{cursor:pointer;user-select:none}
+table.grid th[data-q]:hover{color:var(--accent)}
+table.grid th small,table.grid td small{display:block;font-weight:400;font-size:10.5px;color:var(--muted)}
+table.grid .who{text-align:left;font-weight:500;position:sticky;left:0;background:var(--card)}
+table.grid .sum{color:var(--muted);font-size:12.5px}
+table.grid td.cell{cursor:pointer;font-weight:600;border-radius:6px}
+table.grid td.cell:hover{outline:2px solid var(--accent)}
+table.grid td.cell.correct{background:var(--accent-soft);color:var(--ok)}
+table.grid td.cell.partial{background:var(--warn-soft);color:var(--warn)}
+table.grid td.cell.unknown{background:var(--bad-soft);color:var(--bad)}
+table.grid td.cell.none{color:var(--line);cursor:default}
+table.grid td.cell .of{font-weight:400;font-size:11px;opacity:.7}
+table.grid td.cell sup{font-size:9px;font-weight:400;margin-left:2px;opacity:.75}
+table.grid tr.foot td{border-bottom:none;color:var(--muted);font-size:12.5px}
+table.grid tr.foot td.hot{color:var(--bad);font-weight:600}
+.try{border-top:1px solid var(--line);padding:10px 0 4px;margin-top:8px}
+.try:first-of-type{border-top:none;margin-top:0}
+
+/* attempt history on a question (student) */
+.hist{margin:0 0 10px;font-size:13px}
+.hist>summary{cursor:pointer;color:var(--muted);list-style:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hist>summary::-webkit-details-marker{display:none}
+.hist .step{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);font-size:12px}
+.hist .step.correct{border-color:var(--ok);color:var(--ok)}
+.hist .step.partial{border-color:var(--warn);color:var(--warn)}
+.hist .step.unknown{border-color:var(--bad);color:var(--bad)}
+.hist .arrow{color:var(--line)}
