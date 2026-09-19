@@ -1,6 +1,6 @@
-import * as db from './db.js?v=0936b3bb';
-import * as assign from './assign.js?v=0936b3bb';
-import * as photos from './photos.js?v=0936b3bb';
+import * as db from './db.js?v=985fa28a';
+import * as assign from './assign.js?v=985fa28a';
+import * as photos from './photos.js?v=985fa28a';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -285,42 +285,19 @@ function renderWeak() {
 
 let picker = null;
 
-function mountAssign() {
-  picker = assign.mountPicker($('picker'), {
-    questions: DATA.questions,
-    students,
-    facets: [
+// What the chooser filters and labels questions by; shared by the new-set
+// form and the in-place editor.
+const PICK = {
+  facets: [
       { id: 'd', name: '领域', values: q => [q.d],
         display: v => DATA.domains.find(x => x.id === v)?.name || v },
       { id: 's', name: '知识点', values: q => [q.s],
         display: v => DATA.skills[v]?.name || v },
       { id: 'x', name: '难度', values: q => [q.x], display: v => LEVEL[v] || v },
-    ],
-    label: q => DATA.skills[q.s]?.name || q.id,
-    note: q => LEVEL[q.x] || q.x,
-    preview: q => q.i.map(src => B + src),
-    onSaved: async (row, msg) => {
-      toast(msg);
-      if (row) { sets = await db.myAssignments(); renderAssignList(); }
-    },
-  });
-  renderAssignList();
-}
-
-const LEVEL_EN = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
-function pdfSpec(a, kind) {
-  const qs = a.question_ids.map(id => DATA.questions.find(q => q.id === id)).filter(Boolean);
-  return {
-    title: `作业 ${a.title}`,
-    fileName: `作业-${a.title.replace(/[\\/:*?"<>|]/g, '')}${kind === 'answers' ? '-答案' : ''}.pdf`,
-    lines: [`共 ${qs.length} 题`],
-    items: qs.map((q, i) => ({
-      label: `Q${i + 1}`, marks: null,
-      note: `${DATA.skills[q.s]?.name || ''} · ${LEVEL_EN[q.x] || q.x}`,
-      images: (kind === 'answers' ? q.r : q.i).map(src => B + src),
-    })).filter(it => it.images.length),
-  };
-}
+  ],
+  label: q => DATA.skills[q.s]?.name || q.id,
+  note: q => LEVEL[q.x] || q.x,
+};
 
 // How the grid shows this board's questions and attempts. SAT is auto-marked,
 // so a cell is right or wrong and the detail shows what was typed.
@@ -345,18 +322,45 @@ const board = {
   },
 };
 
+const LEVEL_EN = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+function pdfSpec(a, kind) {
+  const qs = a.question_ids.map(id => DATA.questions.find(q => q.id === id)).filter(Boolean);
+  return {
+    title: `作业 ${a.title}`,
+    fileName: `作业-${a.title.replace(/[\\/:*?"<>|]/g, '')}${kind === 'answers' ? '-答案' : ''}.pdf`,
+    lines: [`共 ${qs.length} 题`],
+    items: qs.map((q, i) => ({
+      label: `Q${i + 1}`, marks: null,
+      note: `${DATA.skills[q.s]?.name || ''} · ${LEVEL_EN[q.x] || q.x}`,
+      images: (kind === 'answers' ? q.r : q.i).map(src => B + src),
+    })).filter(it => it.images.length),
+  };
+}
+
+function mountAssign() {
+  picker = assign.mountPicker($('picker'), {
+    questions: DATA.questions, students, board, ...PICK,
+    assignments: () => sets, attempts: () => rows,
+    onSaved: async (row, msg) => {
+      toast(msg);
+      if (row) await reloadSets();
+    },
+  });
+  renderAssignList();
+}
+
+async function reloadSets() {
+  sets = await db.myAssignments();
+  renderAssignList();
+  picker.refresh();
+}
+
 function renderAssignList() {
   assign.renderTeacherList($('assignList'), {
     assignments: sets, attempts: rows, students,
-    questions: DATA.questions, board,
+    questions: DATA.questions, board, pick: PICK,
     pdfSpec, onError: toast,
-    onEdit: a => picker.edit(a),
-    onDeleted: async err => {
-      if (err) return toast('删除失败：' + err);
-      sets = await db.myAssignments();
-      renderAssignList();
-      toast('已删除');
-    },
+    onChanged: async () => { await reloadSets(); toast('已保存'); },
   });
 }
 

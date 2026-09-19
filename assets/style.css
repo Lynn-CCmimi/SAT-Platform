@@ -256,3 +256,26 @@ table.grid tr.foot td.hot{color:var(--bad);font-weight:600}
 .hist .step.partial{border-color:var(--warn);color:var(--warn)}
 .hist .step.unknown{border-color:var(--bad);color:var(--bad)}
 .hist .arrow{color:var(--line)}
+
+/* student-first set list */
+.stu{margin-bottom:18px}
+.stu>h3{font-size:14px;margin:0 0 8px;display:flex;gap:8px;align-items:baseline}
+table.grid th.off,table.grid tr.off .who,table.grid td.off{opacity:.35;text-decoration:line-through}
+table.grid th.new{color:var(--accent)}
+table.grid th.new::after{content:' 新';font-size:10px}
+.x{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;padding:0 4px;margin-left:2px;line-height:1}
+.x:hover{color:var(--bad)}
+/* chooser rows: label + history tags, +/- at the right */
+.pickrow{align-items:center}
+.pickrow .body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pickrow .tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.correct{border-color:var(--ok);color:var(--ok)}
+.tag.partial{border-color:var(--warn);color:var(--warn)}
+.tag.unknown{border-color:var(--bad);color:var(--bad)}
+.tag i{font-style:normal;opacity:.8}
+.pm{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:var(--card);
+    color:var(--accent);font-size:16px;line-height:1;cursor:pointer;flex:none;padding:0}
+.pm:hover{border-color:var(--accent);background:var(--accent-soft)}
+.pm.on{color:var(--muted)}
+.pm.on:hover{color:var(--bad);border-color:var(--bad);background:var(--bad-soft)}

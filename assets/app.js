@@ -1,9 +1,9 @@
-import * as db from './db.js?v=0936b3bb';
-import * as assign from './assign.js?v=0936b3bb';
-import * as photos from './photos.js?v=0936b3bb';
-import * as analysis from './analysis.js?v=0936b3bb';
-import * as pdf from './pdf.js?v=0936b3bb';
-import * as history from './history.js?v=0936b3bb';
+import * as db from './db.js?v=985fa28a';
+import * as assign from './assign.js?v=985fa28a';
+import * as photos from './photos.js?v=985fa28a';
+import * as analysis from './analysis.js?v=985fa28a';
+import * as pdf from './pdf.js?v=985fa28a';
+import * as history from './history.js?v=985fa28a';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
