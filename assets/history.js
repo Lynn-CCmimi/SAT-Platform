@@ -5,7 +5,7 @@
 // the same mistake twice, or a different one each time, or wrong and then
 // right? The strip reads left to right in time; opening it lists each go.
 
-import * as photos from './photos.js?v=77cc52cb';
+import * as photos from './photos.js?v=0936b3bb';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

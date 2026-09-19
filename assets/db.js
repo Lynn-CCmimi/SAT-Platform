@@ -207,6 +207,21 @@ export async function saveAssignment(row) {
   return data;
 }
 
+// Adding or dropping a question after the fact. Attempts already made keep
+// their assignment_id; the reader re-checks membership, so a dropped question
+// simply stops counting.
+export async function updateAssignment(id, patch) {
+  const db = await supabase();
+  const { data, error } = await db
+    .from('assignments')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteAssignment(id) {
   const db = await supabase();
   const { error } = await db.from('assignments').delete().eq('id', id);

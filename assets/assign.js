@@ -12,8 +12,8 @@
 // note:    q => string     short right-hand note, e.g. difficulty
 // preview: q => string[]   image urls, so the teacher picks by seeing the question
 
-import * as db from './db.js?v=77cc52cb';
-import * as pdf from './pdf.js?v=77cc52cb';
+import * as db from './db.js?v=0936b3bb';
+import * as pdf from './pdf.js?v=0936b3bb';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -31,10 +31,9 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
 const STAMPED_SINCE = '2026-09-17T01:16:54Z';
 
 export function belongs(assignment, a) {
+  if (!assignment.question_ids.includes(a.question_id)) return false;
   if (a.assignment_id != null) return a.assignment_id === assignment.id;
-  return a.created_at < STAMPED_SINCE
-    && a.created_at >= assignment.created_at
-    && assignment.question_ids.includes(a.question_id);
+  return a.created_at < STAMPED_SINCE && a.created_at >= assignment.created_at;
 }
 
 // The attempts made in an assignment, newest first, optionally for one student.
@@ -147,16 +146,22 @@ export function composition(assignment, questions, of) {
 
 // ------------------------------------------------------------ teacher view
 
+// Returns { edit(assignment) }: loads an existing set into the picker so the
+// teacher can add or drop questions, then saves as an update instead of a new
+// row. Progress is re-read from attempts, so the grid follows the new list.
 export function mountPicker(el, { questions, facets, label, note, preview, students, onSaved }) {
   const chosen = new Set();          // question ids
   const who = new Set();             // student ids
   const filter = {};                 // facet id -> value
+  let editing = null;                // the assignment being adjusted, if any
+  let onlyChosen = false;            // list just what is in the set, to prune it
+  let title = '', due = '';          // survive redraws
 
   const matches = q => facets.every(f =>
     !filter[f.id] || f.values(q).includes(filter[f.id]));
 
   function visible() {
-    return questions.filter(matches);
+    return questions.filter(q => matches(q) && (!onlyChosen || chosen.has(q.id)));
   }
 
   // Values offered for one facet, given the filters set on the others, so the
@@ -181,12 +186,21 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
 
   let previewing = null;
 
-  function draw() {
+  function draw(keepTyped = true) {
     const list = visible();
     // a redraw replaces the list; keep the teacher where they were in it
     const keepList = el.querySelector('.list')?.scrollTop || 0;
     const keepPage = window.scrollY;
+    if (keepTyped) {
+      title = el.querySelector('#title')?.value ?? title;
+      due = el.querySelector('#due')?.value ?? due;
+    }
     el.innerHTML = `
+      ${editing ? `<div class="card" style="margin-bottom:12px;border-color:var(--accent)">
+        <div class="row"><strong>正在调整「${esc(editing.title)}」</strong>
+          <span class="hint">加减题目或学生后点「保存修改」；学生已做的记录不受影响</span>
+          <span class="spacer"></span>
+          <button class="plain" id="cancelEdit">放弃修改</button></div></div>` : ''}
       <div class="card" style="margin-bottom:12px">
         <h3 style="margin:0 0 8px;font-size:15px">布置给谁</h3>
         <div class="picks" id="who">${students.map(s =>
@@ -207,8 +221,8 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
           </div>`).join('')}
 
         <div class="row" style="margin:14px 0 10px">
-          <span class="badge">已选 ${chosen.size} 道</span>
-          <span class="hint">当前筛选出 ${list.length} 道</span>
+          <button class="chip" id="onlyChosen" aria-pressed="${onlyChosen}">已选<b>${chosen.size}</b></button>
+          <span class="hint">${onlyChosen ? '只显示已选的题' : `当前筛选出 ${list.length} 道`}</span>
           <span class="spacer"></span>
           <button class="plain" id="pickAll">全选这些</button>
           <button class="plain" id="pickRand">随机抽</button>
@@ -230,9 +244,9 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
 
       <div class="card">
         <div class="row">
-          <input id="title" class="spr" style="width:260px" placeholder="作业名称，例如「二次函数 10 题」">
-          <input id="due" type="date" class="spr" style="width:170px">
-          <button class="act" id="save">布置</button>
+          <input id="title" class="spr" style="width:260px" placeholder="作业名称，例如「二次函数 10 题」" value="${esc(title)}">
+          <input id="due" type="date" class="spr" style="width:170px" value="${esc(due)}">
+          <button class="act" id="save">${editing ? '保存修改' : '布置'}</button>
         </div>
         <div class="hint" style="margin-top:8px">截止日期可以不填。学生做完题自动算完成，不用交作业。</div>
       </div>`;
@@ -258,6 +272,7 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
     if (listEl) listEl.scrollTop = keepList;
     window.scrollTo(0, keepPage);
 
+    el.querySelector('#onlyChosen').onclick = () => { onlyChosen = !onlyChosen; draw(); };
     el.querySelector('#pickAll').onclick = () => { for (const q of visible()) chosen.add(q.id); draw(); };
     el.querySelector('#pickNone').onclick = () => { chosen.clear(); draw(); };
     el.querySelector('#pickRand').onclick = () => {
@@ -271,6 +286,31 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
       draw();
     };
     el.querySelector('#save').onclick = save;
+    const cancel = el.querySelector('#cancelEdit');
+    if (cancel) cancel.onclick = reset;
+  }
+
+  function reset() {
+    editing = null;
+    onlyChosen = false;
+    chosen.clear();
+    who.clear();
+    title = ''; due = '';
+    draw(false);
+  }
+
+  function edit(a) {
+    editing = a;
+    chosen.clear();
+    for (const id of a.question_ids) chosen.add(id);
+    who.clear();
+    for (const id of a.student_ids) who.add(id);
+    title = a.title;
+    due = a.due_on || '';
+    onlyChosen = true;                // start from what is in the set
+    previewing = null;
+    draw(false);
+    el.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
   function drawPreview(q) {
@@ -302,15 +342,11 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
     const btn = el.querySelector('#save');
     btn.disabled = true;
     try {
-      const row = await db.saveAssignment({
-        title, due_on: due,
-        student_ids: [...who],
-        question_ids: [...chosen],
-      });
-      chosen.clear();
-      who.clear();
-      draw();
-      onSaved(row, `已布置「${title}」`);
+      const patch = { title, due_on: due, student_ids: [...who], question_ids: [...chosen] };
+      const was = editing;
+      const row = was ? await db.updateAssignment(was.id, patch) : await db.saveAssignment(patch);
+      reset();
+      onSaved(row, was ? `已保存「${title}」的修改` : `已布置「${title}」`);
     } catch (err) {
       btn.disabled = false;
       onSaved(null, '没保存上：' + (err.message || err));
@@ -318,6 +354,7 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
   }
 
   draw();
+  return { edit };
 }
 
 // The list of what has been set. Each set opens into a student × question
@@ -334,7 +371,7 @@ export function mountPicker(el, { questions, facets, label, note, preview, stude
 // `pdfSpec(assignment, kind)` is optional; when given, each set gets the
 // download buttons so the teacher can hand out paper copies.
 export function renderTeacherList(el, { assignments, attempts, students, questions, board,
-                                        onDeleted, pdfSpec = null, onError = () => {} }) {
+                                        onDeleted, onEdit = null, pdfSpec = null, onError = () => {} }) {
   if (!assignments.length) {
     el.innerHTML = '<div class="empty">还没有布置过作业</div>';
     return;
@@ -353,6 +390,7 @@ export function renderTeacherList(el, { assignments, attempts, students, questio
         <div class="row" style="margin-top:12px">
           ${pdfSpec ? `<span class="row" data-pdf-for="${a.id}"></span>` : ''}
           <button class="plain" data-all>展开全部题目</button>
+          ${onEdit ? `<button class="plain" data-edit="${a.id}">调整题目/学生</button>` : ''}
           <span class="spacer"></span>
           <button class="plain" data-del="${a.id}">删除这份作业</button>
           <span class="hint">不会动学生已有的练习记录</span>
@@ -369,6 +407,9 @@ export function renderTeacherList(el, { assignments, attempts, students, questio
       const a = assignments.find(x => String(x.id) === box.dataset.pdfFor);
       pdf.buttons(box, { set: kind => pdfSpec(a, kind), onError });
     }
+  }
+  for (const b of el.querySelectorAll('[data-edit]')) {
+    b.onclick = () => onEdit(assignments.find(x => String(x.id) === b.dataset.edit));
   }
   for (const b of el.querySelectorAll('[data-del]')) {
     b.onclick = async () => {

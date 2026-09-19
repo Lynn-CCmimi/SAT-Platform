@@ -1,6 +1,6 @@
-import * as db from './db.js?v=77cc52cb';
-import * as assign from './assign.js?v=77cc52cb';
-import * as photos from './photos.js?v=77cc52cb';
+import * as db from './db.js?v=0936b3bb';
+import * as assign from './assign.js?v=0936b3bb';
+import * as photos from './photos.js?v=0936b3bb';
 
 const B = 'data/bank/';
 const LEVEL = { easy: '简单', medium: '中等', hard: '困难' };
@@ -283,8 +283,10 @@ function renderWeak() {
 // ------------------------------------------------------------- assignments
 // Only the board-specific description lives here; the picker itself is shared.
 
+let picker = null;
+
 function mountAssign() {
-  assign.mountPicker($('picker'), {
+  picker = assign.mountPicker($('picker'), {
     questions: DATA.questions,
     students,
     facets: [
@@ -348,6 +350,7 @@ function renderAssignList() {
     assignments: sets, attempts: rows, students,
     questions: DATA.questions, board,
     pdfSpec, onError: toast,
+    onEdit: a => picker.edit(a),
     onDeleted: async err => {
       if (err) return toast('删除失败：' + err);
       sets = await db.myAssignments();
