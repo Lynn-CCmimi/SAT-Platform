@@ -54,7 +54,7 @@ export async function profile(userId) {
   const db = await supabase();
   const { data, error } = await db
     .from('profiles')
-    .select('id, username, display_name, role, units')
+    .select('id, username, display_name, role, units, progress')
     .eq('id', userId)
     .single();
   if (error) throw error;
@@ -160,13 +160,28 @@ export async function allStudents() {
   const db = await supabase();
   const { data, error } = await db
     .from('profiles')
-    .select('id, username, display_name, role, units, tracks')
+    .select('id, username, display_name, role, units, tracks, progress')
     .eq('role', 'student')
     .contains('tracks', [SUBJECT])
     .order('display_name');
   if (error) throw error;
   return data || [];
 }
+
+// How far a student has got in each textbook: { unit: chapter }. Stored per
+// subject on the profile, so one account can sit two boards.
+export async function saveProgress(studentId, progress) {
+  const db = await supabase();
+  const { data: row, error: readErr } = await db
+    .from('profiles').select('progress').eq('id', studentId).single();
+  if (readErr) throw readErr;
+  const all = { ...(row?.progress || {}), [SUBJECT]: progress };
+  const { error } = await db.from('profiles').update({ progress: all }).eq('id', studentId);
+  if (error) throw error;
+  return progress;
+}
+
+export const progressOf = profile => (profile?.progress || {})[SUBJECT] || {};
 
 export async function attemptsForClass() {
   const db = await supabase();

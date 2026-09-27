@@ -12,8 +12,9 @@
 // note:    q => string     short right-hand note, e.g. difficulty
 // preview: q => string[]   image urls, so the teacher picks by seeing the question
 
-import * as db from './db.js?v=985fa28a';
-import * as pdf from './pdf.js?v=985fa28a';
+import * as db from './db.js?v=e286b7b4';
+import * as pdf from './pdf.js?v=e286b7b4';
+import * as scope from './scope.js?v=e286b7b4';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -192,12 +193,13 @@ export function historyOf(studentId, assignments, attempts) {
 // Where to draw questions from, once a student is chosen.
 const SOURCES = [
   ['all', '全部题库', () => true],
+  ['reach', '学过的范围', (h, id, q, ctx) => scope.inReach(q, ctx.progress, ctx.sections)],
   ['wrong', '错过的题', (h, id) => { const l = h.last(id); return Boolean(l && l.result !== 'correct'); }],
   ['undone', '布置过没做', (h, id) => h.sets(id).length > 0 && !h.last(id)],
   ['weak', '标了没掌握', (h, id) => h.flagged(id)],
 ];
 
-function historyTags(h, q, board) {
+function historyTags(h, q, board, ctx = null) {
   if (!h) return '';
   const sets = h.sets(q.id), l = h.last(q.id);
   const out = [];
@@ -205,6 +207,8 @@ function historyTags(h, q, board) {
     out.push(`<span class="tag" title="${esc(sets.map(a => `${day(a.created_at)} ${a.title}`).join('\n'))}">📝 ${
       sets.length > 1 ? `布置过 ${sets.length} 次` : `${day(sets[0].created_at)} 布置过`}</span>`);
   }
+  const over = ctx ? scope.beyond(q, ctx.progress, ctx.sections) : [];
+  if (over.length) out.push(`<span class="tag unknown" title="这道题要用到他还没学的章节">超出进度 · ${esc(over.join('、'))}</span>`);
   if (l) {
     const max = board.marksOf(q);
     const reasons = (l.reasons || []).map(k =>
@@ -223,7 +227,8 @@ function historyTags(h, q, board) {
 //
 // chosen:  Set of question ids the caller owns; this mutates it via onChange
 // history: from historyOf(), or null before a student is picked
-function questionChooser(host, { questions, facets, label, note, board, chosen, history, onChange }) {
+function questionChooser(host, { questions, facets, label, note, board, chosen, history,
+                                 sections = {}, progress = {}, onChange }) {
   const filter = {};
   let source = 'all';
   let previewing = null;
@@ -231,7 +236,7 @@ function questionChooser(host, { questions, facets, label, note, board, chosen, 
   const matches = q => facets.every(f => !filter[f.id] || f.values(q).includes(filter[f.id]));
   const inSource = q => {
     if (!history || source === 'all') return true;
-    return SOURCES.find(s => s[0] === source)[2](history, q.id);
+    return SOURCES.find(s => s[0] === source)[2](history, q.id, q, { progress, sections });
   };
   const visible = () => {
     const list = questions.filter(q => matches(q) && inSource(q));
@@ -262,11 +267,12 @@ function questionChooser(host, { questions, facets, label, note, board, chosen, 
     const keepList = host.querySelector('.list')?.scrollTop || 0;
     const keepPage = window.scrollY;
     const counts = history ? Object.fromEntries(SOURCES.map(([k, , test]) =>
-      [k, questions.filter(q => test(history, q.id)).length])) : null;
+      [k, questions.filter(q => test(history, q.id, q, { progress, sections })).length])) : null;
 
     host.innerHTML = `
       ${history ? `<div class="chips" style="margin-bottom:4px">${SOURCES.map(([k, v]) =>
-        `<button class="chip" data-src="${k}" aria-pressed="${source === k}" ${
+        (k === 'reach' && !Object.keys(progress).length) ? ''
+        : `<button class="chip" data-src="${k}" aria-pressed="${source === k}" ${
           counts[k] ? '' : 'disabled'}>${v}<b>${counts[k]}</b></button>`).join('')}</div>`
         : '<div class="hint" style="margin-bottom:4px">先选学生，这里会标出他布置过、做错过的题</div>'}
       ${facets.map(f => `
@@ -294,7 +300,7 @@ function questionChooser(host, { questions, facets, label, note, board, chosen, 
           return `<div class="item pickrow" data-q="${esc(q.id)}" aria-current="${previewing === q.id}">
              <span class="q">${on ? '✓' : ''}</span>
              <span class="body"><span>${esc(label(q))}</span>
-               <span class="tags">${historyTags(history, q, board)}</span></span>
+               <span class="tags">${historyTags(history, q, board, history ? { progress, sections } : null)}</span></span>
              <span class="meta">${note ? esc(note(q)) : ''}</span>
              <button class="pm ${on ? 'on' : ''}" data-pm="${esc(q.id)}" title="${on ? '移出' : '加入'}">${on ? '−' : '+'}</button>
            </div>`; }).join('') : '<div class="empty">没有符合条件的题</div>'}</div>
@@ -345,7 +351,7 @@ function questionChooser(host, { questions, facets, label, note, board, chosen, 
         <span class="spacer"></span>
         <button class="act ${on ? 'ghost' : ''}" data-toggle>${on ? '移出作业' : '加入作业'}</button>
       </div>
-      <div class="picks" style="margin-bottom:8px">${historyTags(history, q, board)}</div>
+      <div class="picks" style="margin-bottom:8px">${historyTags(history, q, board, history ? { progress, sections } : null)}</div>
       <div data-body></div>`;
     board.question(box.querySelector('[data-body]'), q);
     box.querySelector('[data-toggle]').onclick = () => toggle(q.id);
@@ -360,13 +366,19 @@ function questionChooser(host, { questions, facets, label, note, board, chosen, 
   draw();
   return {
     redraw: draw,
-    setHistory(h) { history = h; source = 'all'; previewing = null; draw(); },
+    setScope({ history: h, progress: p }) {
+      history = h;
+      progress = p || {};
+      source = 'all';
+      previewing = null;
+      draw();
+    },
   };
 }
 
 // ------------------------------------------------------------- new set
 
-export function mountPicker(el, { questions, facets, label, note, board, students,
+export function mountPicker(el, { questions, facets, label, note, board, students, sections = {},
                                   assignments, attempts, onSaved }) {
   const chosen = new Set();
   let student = null;
@@ -399,14 +411,17 @@ export function mountPicker(el, { questions, facets, label, note, board, student
       b.onclick = () => {
         student = student === b.dataset.s ? null : b.dataset.s;
         drawWho();
-        chooser.setHistory(student ? historyOf(student, asList(assignments), asList(attempts)) : null);
+        chooser.setScope(student
+          ? { history: historyOf(student, asList(assignments), asList(attempts)),
+              progress: db.progressOf(students.find(x => x.id === student)) }
+          : { history: null, progress: {} });
       };
     }
   }
   drawWho();
 
   const chooser = questionChooser(el.querySelector('[data-chooser]'), {
-    questions, facets, label, note, board, chosen, history: null, onChange: () => {},
+    questions, facets, label, note, board, chosen, history: null, sections, onChange: () => {},
   });
 
   const titleEl = el.querySelector('[data-title]'), dueEl = el.querySelector('[data-due]');
@@ -436,7 +451,13 @@ export function mountPicker(el, { questions, facets, label, note, board, student
 
   return {
     // history changes when a set is saved or edited; the picker re-reads it
-    refresh() { if (student) chooser.setHistory(historyOf(student, asList(assignments), asList(attempts))); },
+    refresh() {
+      if (!student) return;
+      chooser.setScope({
+        history: historyOf(student, asList(assignments), asList(attempts)),
+        progress: db.progressOf(students.find(x => x.id === student)),
+      });
+    },
   };
 }
 
@@ -449,7 +470,7 @@ export function mountPicker(el, { questions, facets, label, note, board, student
 //       adding a question inside a set offers the same annotated list.
 // onChanged(): a set was saved or deleted; the caller reloads and re-renders.
 export function renderTeacherList(el, { assignments, attempts, students, questions, board, pick,
-                                        onChanged, pdfSpec = null, onError = () => {} }) {
+                                        sections = {}, onChanged, pdfSpec = null, onError = () => {} }) {
   if (!assignments.length) {
     el.innerHTML = '<div class="empty">还没有布置过作业</div>';
     return;
@@ -497,20 +518,21 @@ export function renderTeacherList(el, { assignments, attempts, students, questio
   for (const b of el.querySelectorAll('[data-order]')) {
     b.onclick = () => {
       el.dataset.order = b.dataset.order;
-      renderTeacherList(el, { assignments, attempts, students, questions, board, pick, onChanged, pdfSpec, onError });
+      renderTeacherList(el, { assignments, attempts, students, questions, board, pick, sections, onChanged, pdfSpec, onError });
     };
   }
   for (const box of el.querySelectorAll('details.grp')) {
     const a = assignments.find(x => String(x.id) === box.dataset.id);
     mountSet(box.querySelector('.setbody'), a,
-      { assignments, attempts, students, questions, board, pick, name, pdfSpec, onError, onChanged });
+      { assignments, attempts, students, questions, board, pick, sections, name, pdfSpec, onError, onChanged });
   }
 }
 
 // One set's body: the grid, the tool row, and the in-place editor.
 function mountSet(body, a, ctx) {
   let draft = null;          // { title, due_on, question_ids, student_ids, dropQ:Set, dropS:Set }
-  const { assignments, attempts, students, questions, board, pick, name, pdfSpec, onError, onChanged } = ctx;
+  const { assignments, attempts, students, questions, board, pick, sections, name,
+          pdfSpec, onError, onChanged } = ctx;
 
   function view() {
     body.innerHTML = `
@@ -608,7 +630,8 @@ function mountSet(body, a, ctx) {
       if (!chooser && !host.hidden) {
         const sid = live().student_ids[0];
         chooser = questionChooser(host, {
-          questions, ...pick, board, chosen,
+          questions, ...pick, board, chosen, sections,
+          progress: sid ? db.progressOf(students.find(x => x.id === sid)) : {},
           // this set itself is left out, or every question in it reads as "set before"
           history: sid ? historyOf(sid, assignments.filter(x => x.id !== a.id), attempts) : null,
           onChange: () => {

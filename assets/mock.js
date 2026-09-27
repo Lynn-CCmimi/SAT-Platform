@@ -12,7 +12,7 @@
 // The site describes its own questions with accessors:
 //   marksOf(q) -> number, topicsOf(q) -> id[], paperOf(q) -> string
 
-import * as db from './db.js?v=985fa28a';
+import * as db from './db.js?v=e286b7b4';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
