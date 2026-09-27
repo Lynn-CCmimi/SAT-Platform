@@ -5,8 +5,8 @@
 // question that needs five. Each row shows what setting a chapter actually
 // unlocks, so the number is chosen against the consequence, not in the dark.
 
-import * as db from './db.js?v=e286b7b4';
-import * as scope from './scope.js?v=e286b7b4';
+import * as db from './db.js?v=f14419c1';
+import * as scope from './scope.js?v=f14419c1';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

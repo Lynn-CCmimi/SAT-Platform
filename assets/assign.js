@@ -12,9 +12,9 @@
 // note:    q => string     short right-hand note, e.g. difficulty
 // preview: q => string[]   image urls, so the teacher picks by seeing the question
 
-import * as db from './db.js?v=e286b7b4';
-import * as pdf from './pdf.js?v=e286b7b4';
-import * as scope from './scope.js?v=e286b7b4';
+import * as db from './db.js?v=f14419c1';
+import * as pdf from './pdf.js?v=f14419c1';
+import * as scope from './scope.js?v=f14419c1';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -230,7 +230,9 @@ function historyTags(h, q, board, ctx = null) {
 function questionChooser(host, { questions, facets, label, note, board, chosen, history,
                                  sections = {}, progress = {}, onChange }) {
   const filter = {};
-  let source = 'all';
+  // Once a student's progress is known, start inside it: the whole point is
+  // not to hand them a question they cannot do. 全部题库 is one click away.
+  let source = Object.keys(progress).length ? 'reach' : 'all';
   let previewing = null;
 
   const matches = q => facets.every(f => !filter[f.id] || f.values(q).includes(filter[f.id]));
@@ -369,7 +371,7 @@ function questionChooser(host, { questions, facets, label, note, board, chosen, 
     setScope({ history: h, progress: p }) {
       history = h;
       progress = p || {};
-      source = 'all';
+      source = Object.keys(progress).length ? 'reach' : 'all';
       previewing = null;
       draw();
     },
